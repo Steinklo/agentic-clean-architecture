@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Todo.Api/Todo.Api.csproj" />
+    <Project Path="src/Todo.Application/Todo.Application.csproj" />
+    <Project Path="src/Todo.Domain/Todo.Domain.csproj" />
+    <Project Path="src/Todo.Infrastructure/Todo.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Todo.ArchitectureTests/Todo.ArchitectureTests.csproj" />
+    <Project Path="tests/Todo.IntegrationTests/Todo.IntegrationTests.csproj" />
+    <Project Path="tests/Todo.UnitTests/Todo.UnitTests.csproj" />
+  </Folder>
+</Solution>

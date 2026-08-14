@@ -1,0 +1,146 @@
+# Build and test every pull request (issue 13).
+#
+# Two checks, both delegating to .github/workflows/build.yml:
+#
+#   pr-build / build & unit tests / test   builds Todo.slnx -- all seven
+#                                          projects, warnings as errors, NuGet
+#                                          audit on -- then runs the unit suite.
+#   pr-build / integration tests / test    builds and runs the Testcontainers
+#                                          suite against real SQL Server.
+#
+# The layering check is deliberately NOT here: it lives in
+# .github/workflows/architecture.yml so a layering violation fails in seconds
+# instead of behind a database container.
+#
+# ---------------------------------------------------------------------------
+# WHY THERE IS NO `paths:` FILTER ON THIS WORKFLOW
+#
+# The container-backed suite must not run for a documentation-only pull
+# request, and the obvious way to express that -- a `paths-ignore:` trigger
+# filter -- is wrong here twice over:
+#
+#   1. It would mean pasting the documentation path globs into this file. Those
+#      globs already exist, exactly once, in .protected-paths.json; the guard
+#      names a second copy drifting from the first as the failure to avoid, and
+#      scripts/verify-protected-paths.mjs fails the build the moment one appears
+#      anywhere under .github. .github/workflows/protected-paths.yml carries the
+#      same constraint and solves it the same way: no trigger filter at all.
+#   2. A workflow skipped by a path filter reports no status on the pull
+#      requests it skips, so requiring the check would block every
+#      documentation pull request forever.
+#
+# So this workflow always runs, and the decision is made *inside* it, by the
+# `changes` job below, and passed to the build as an input the called job can
+# honour while still reporting success. Nothing is skipped; something is
+# disabled.
+# ---------------------------------------------------------------------------
+
+name: pr-build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Decides whether the container-backed suite has anything to test.
+  #
+  # The test is deliberately the conservative direction: a pull request counts
+  # as documentation-only when EVERY file it touches is a prose document, and
+  # anything else at all -- a .cs file, a .csproj, a build props file, a
+  # workflow, a file type not listed -- puts the full suite back. Getting this
+  # wrong therefore costs a container start, never a missed regression.
+  #
+  # It matches on document file types rather than on directories on purpose:
+  # a directory list would be a second, drifting copy of the path globs in
+  # .protected-paths.json (see the header), and prose lives at the repository
+  # root as well as under the documentation tree. Nothing this repository
+  # compiles is a Markdown or text file.
+  changes:
+    name: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.detect.outputs.code }}
+    steps:
+      # fetch-depth: 0 -- the base commit is not in a shallow clone, and the
+      # diff against it is the whole point of this job.
+      - name: Check out the pull request with its history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect whether anything buildable changed
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Not a pull request (workflow_dispatch): there is no base to diff
+          # against, so build everything.
+          if [ -z "${BASE_SHA:-}" ]; then
+            echo "No pull request base to compare against; running the full suite."
+            echo "code=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Three dots: changes this branch introduced since it forked, not
+          # changes the base branch has made since.
+          changed="$(git diff --name-only "$BASE_SHA...HEAD")"
+
+          echo "Files changed by this pull request:"
+          printf '%s\n' "$changed" | sed 's/^/  /'
+
+          if [ -z "$changed" ]; then
+            code=false
+          elif printf '%s\n' "$changed" | grep -qvE '(\.(md|mdx|txt)|^LICENSE)$'; then
+            code=true
+          else
+            code=false
+          fi
+
+          echo
+          if [ "$code" = true ]; then
+            echo "Buildable files changed; the integration suite will run."
+          else
+            echo "Documentation only; the integration suite will report success without running."
+          fi
+          echo "code=$code" >>"$GITHUB_OUTPUT"
+
+  build-and-unit-tests:
+    name: build & unit tests
+    uses: ./.github/workflows/build.yml
+    with:
+      # The whole solution, so a compile error anywhere -- including in a test
+      # project this job does not run -- fails the pull request.
+      build-target: Todo.slnx
+      test-projects: tests/Todo.UnitTests/Todo.UnitTests.csproj
+      results-name: unit-test-results
+
+  integration-tests:
+    name: integration tests
+    needs: changes
+    uses: ./.github/workflows/build.yml
+    with:
+      # Note this is an input, not an `if:`. An `if:` on a job that calls a
+      # reusable workflow prevents the called job from ever existing, so the
+      # check reports no status -- see the header. Passing `enabled: false`
+      # instead lets the check exist, report success and stay required.
+      enabled: ${{ needs.changes.outputs.code == 'true' }}
+      # Only this project's graph: the solution as a whole is already built by
+      # the job above, and rebuilding it here would just make the slowest check
+      # slower.
+      build-target: tests/Todo.IntegrationTests/Todo.IntegrationTests.csproj
+      test-projects: tests/Todo.IntegrationTests/Todo.IntegrationTests.csproj
+      results-name: integration-test-results
+      # Docker is preinstalled on the GitHub-hosted Ubuntu image, so
+      # Testcontainers needs no setup step -- but the runner must be x86-64,
+      # because the SQL Server image publishes no arm64 variant. build.yml
+      # defaults to an x86-64 image and documents why.
+      timeout-minutes: 30

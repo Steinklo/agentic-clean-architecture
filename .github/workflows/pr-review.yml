@@ -1,0 +1,347 @@
+# Automated pull request review against this repository's own standards (issue 16).
+#
+# A human reviewer should spend their attention on judgement, not on checking
+# conventions a machine can check. This workflow reads the pull request's diff
+# and reviews it against AGENTS.md and the layering rules, posting findings as
+# review comments anchored to the lines they are about.
+#
+# ---------------------------------------------------------------------------
+# WHAT IT COSTS, AND WHY THAT STAYS FLAT
+#
+# The review is scoped to the diff, three ways:
+#
+#   1. The prompt makes the diff the unit of work. `gh pr diff` is the first
+#      thing Claude runs, and the instructions say to comment only on lines the
+#      diff touches. Unchanged code is context, never subject matter.
+#   2. The tool allowlist is narrow. `gh pr diff` / `gh pr view` for the change,
+#      Read/Glob/Grep for reading the instruction files a rule lives in, and the
+#      inline-comment tool for the verdict. There is no build, no test run, no
+#      write access, no network beyond the pull request itself.
+#   3. `--max-turns` caps the loop, so a confused run stops rather than
+#      exploring the repository.
+#
+# So the cost of a review tracks the size of the change, not the size of the
+# repository -- which is the point: a template that grows to fifty files must
+# not cost fifty files' worth of tokens to review a one-line fix.
+# ---------------------------------------------------------------------------
+#
+# ---------------------------------------------------------------------------
+# FORKS, AND WHY THIS IS NOT `pull_request_target`
+#
+# Secrets are not available to workflows triggered by a fork's pull request, so
+# a fork pull request cannot authenticate to Claude. The obvious fix --
+# `pull_request_target` -- is rejected in this design for the same reason
+# .github/workflows/protected-paths.yml rejects it: it runs with the base
+# repository's secrets in scope, and a fork controls the code. That trade is
+# not worth an automated review.
+#
+# So this workflow runs on `pull_request`, and skips the review on forks. The
+# skip happens **inside** the job, in a step, not in an `if:` on the job. Issue
+# 13 already paid for that lesson: a job that is skipped by an `if:` reports no
+# status at all, so a required check would wedge every pull request it skips.
+# Here the job always runs, always reports, and simply does no work -- the
+# reason is written to the job summary where a reviewer can see it.
+# ---------------------------------------------------------------------------
+#
+# ---------------------------------------------------------------------------
+# AUTHENTICATION -- SHARED WITH THE DOCUMENTATION AGENT, NOTHING NEW TO SET UP
+#
+# Claude authenticates with CLAUDE_CODE_OAUTH_TOKEN, the subscription token the
+# documentation agent (issue 15) already needs. Two agents, one secret, one
+# credential to set up. Note a subscription token is tied to one person's
+# plan, so every clone of this template mints its own.
+#
+# TEAMS ON API CREDITS: swap the `claude_code_oauth_token:` line below for
+#
+#     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+#
+# and store that secret instead. Nothing else in this file changes. The API key
+# bills per token against an organisation's credits rather than one person's
+# subscription, which is usually what a team wants.
+# ---------------------------------------------------------------------------
+
+name: pr-review
+
+# `pull_request`, deliberately not `pull_request_target` -- see the header.
+#
+# There is no `workflow_dispatch`: without a pull request there is no diff, so
+# a manual run would have nothing to review.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# This job comments; it does not push. `contents: read` to read the diff,
+# `pull-requests: write` to post the review, and nothing else -- notably no
+# `contents: write`, so a review can never become a commit.
+#
+# `id-token: write` mints the short-lived OIDC token the action exchanges for
+# its GitHub App identity, so review comments arrive as the app rather than as
+# `github-actions`. It grants no access to this repository by itself.
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      # fetch-depth: 0 -- the gate below reads commit authorship across the
+      # range this push introduced, and neither the base commit nor the pull
+      # request's own commits are in a shallow clone.
+      - name: Check out the pull request with its history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Decides whether there is anything here worth spending a review on.
+      #
+      # Two reasons to decline, and both report success rather than skipping the
+      # job -- see the header for why that distinction is load-bearing.
+      - name: Decide whether this pull request can be reviewed
+        id: gate
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          THIS_REPO: ${{ github.repository }}
+          EVENT_ACTION: ${{ github.event.action }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # The head the branch had before this push, present on `synchronize`.
+          BEFORE_SHA: ${{ github.event.before }}
+          # Case-insensitive extended regex matched against
+          # "Author Name <author@email>". The default matches the "[bot]" suffix
+          # that GitHub App and github-actions identities carry, which is the
+          # same identity contract .github/scripts/protected-paths-guard.sh
+          # documents for the documentation agent. Override here, not in code,
+          # if the agent ever commits under a different name.
+          BOT_AUTHORS: ${{ vars.BOT_AUTHORS || '\[bot\]' }}
+          # Whether a credential exists, never the credential. An unset secret is
+          # the empty string in an expression, so this is '' when neither is set
+          # and 'set' otherwise -- the value itself never enters the environment.
+          AGENT_CREDENTIAL: ${{ (secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.ANTHROPIC_API_KEY) && 'set' || '' }}
+        run: |
+          set -euo pipefail
+
+          skip() {
+            echo "review=false" >>"$GITHUB_OUTPUT"
+            {
+              echo '### Review skipped'
+              echo
+              echo "$1"
+            } >>"$GITHUB_STEP_SUMMARY"
+            echo "SKIPPING: $1"
+            exit 0
+          }
+
+          # 1. Forks. The secret this review needs is not available to a
+          #    workflow triggered from a fork, so attempting the review would
+          #    fail with an authentication error rather than a review. Say so
+          #    plainly instead.
+          if [ "$HEAD_REPO" != "$THIS_REPO" ]; then
+            skip "This pull request comes from a fork (\`$HEAD_REPO\`). GitHub does not
+          expose secrets to fork workflows, so the review agent cannot authenticate.
+          Nothing is wrong with the pull request -- a maintainer reviews it by hand, or
+          re-runs the review from a branch in this repository. The check reports success
+          so it can stay a required check without blocking outside contributions."
+          fi
+
+          # 2. No agent credential. A fresh clone of this template has none, and
+          #    that is a perfectly good state to be in -- most of the harness
+          #    needs no credentials at all. Without this the action would be
+          #    handed an empty token and fail to authenticate, so the check would
+          #    go red for a reason that says nothing about the code.
+          if [ -z "${AGENT_CREDENTIAL:-}" ]; then
+            skip "No agent credential is configured, so there is nothing to review with.
+          This is the expected state for a fresh clone of this template: the architecture
+          rules, the build, the tests and the protected-path guard all run without one, and
+          they are the checks that decide whether this pull request is sound.
+          \`docs/setup.md\` covers wiring the review agent up if you want it. Until then this
+          check reports success rather than red, because an unconfigured optional agent is
+          not a defect in your change."
+          fi
+
+          # 3. The documentation agent's own commits. Regenerated documentation
+          #    is machine output; reviewing it is noise, and on a `synchronize`
+          #    caused solely by the agent's push there is no new human work to
+          #    look at. Every commit the push introduced must be bot-authored
+          #    for this to fire -- one human commit in the range puts the whole
+          #    review back, so nothing can be smuggled in behind the agent.
+          range_start="$BASE_SHA"
+          if [ "$EVENT_ACTION" = synchronize ] \
+            && [ -n "${BEFORE_SHA:-}" ] \
+            && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] \
+            && git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            # Only what this push added. A force-push leaves BEFORE_SHA
+            # unreachable, and the check above falls back to the base commit --
+            # the conservative direction, since it reviews more, never less.
+            range_start="$BEFORE_SHA"
+          fi
+
+          commits=()
+          while IFS= read -r line; do
+            [ -n "$line" ] && commits+=("$line")
+          done < <(git rev-list --no-merges "${range_start}..${HEAD_SHA}")
+
+          if [ ${#commits[@]} -eq 0 ]; then
+            skip "This event introduced no non-merge commits, so there is nothing to review."
+          fi
+
+          echo "Commits under review:"
+          human=0
+          for sha in "${commits[@]}"; do
+            author="$(git log -1 --pretty='%an <%ae>' "$sha")"
+            subject="$(git log -1 --pretty='%s' "$sha")"
+            if printf '%s' "$author" | grep -qiE "$BOT_AUTHORS"; then
+              printf '  bot     %.8s  %s  [%s]\n' "$sha" "$subject" "$author"
+            else
+              printf '  human   %.8s  %s  [%s]\n' "$sha" "$subject" "$author"
+              human=$((human + 1))
+            fi
+          done
+
+          if [ "$human" -eq 0 ]; then
+            skip "Every commit in this push is bot-authored -- this is the documentation
+          agent regenerating its own files. Machine-generated documentation is not worth a
+          machine review, so the review is skipped. The next human commit on this branch
+          gets reviewed as normal."
+          fi
+
+          echo
+          echo "Reviewing $human human-authored commit(s) in ${range_start}..${HEAD_SHA}."
+          echo "review=true" >>"$GITHUB_OUTPUT"
+
+      - name: Review the diff against this repository's standards
+        if: ${{ steps.gate.outputs.review == 'true' }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Subscription auth, shared with the documentation agent. See the
+          # header for the ANTHROPIC_API_KEY alternative teams use instead.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # The tool allowlist is half of how the review stays cheap; see the
+          # header. Note there is no Write, Edit or `git` -- this agent reads and
+          # comments, and cannot change the branch it is reviewing.
+          #
+          # No `--model` is pinned: the action's default tracks the current
+          # recommended model, and pinning one here would be a second place to
+          # remember on every model release. Add `--model <id>` if a run needs to
+          # be reproducible.
+          claude_args: >-
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Read,Glob,Grep"
+            --max-turns 30
+
+          prompt: |
+            You are reviewing a pull request in this repository, before a human
+            looks at it. Your job is to catch the things this project has
+            already decided, so the human reviewer can spend their attention on
+            judgement instead.
+
+            REPOSITORY: ${{ github.repository }}
+            PULL REQUEST: #${{ github.event.pull_request.number }}
+
+            ## The standard you review against
+
+            This repository documents its own conventions, and those documents
+            win. Read them before you review:
+
+            - `docs/architecture.md`, `docs/conventions.md` and
+              `docs/gotchas.md` -- the rules you are enforcing. These are
+              human-authored and never regenerated, so they are the standard.
+            - `docs/layers/<project>.md` for each layer this pull request
+              touches -- each states what belongs there and what must not.
+            - The `AGENTS.md` files are maps of what currently exists, not
+              rules. Use them to find things; never cite one as a standard.
+            - `CONTEXT.md` for domain vocabulary, and the decision records under
+              `docs/adr/` when a change looks like it contradicts one.
+
+            **Prefer this repository's documented conventions over generic C#
+            or clean-architecture advice.** Where general practice and
+            `AGENTS.md` disagree, `AGENTS.md` is right and general practice is
+            wrong. Do not suggest a pattern this repository has explicitly
+            rejected, and do not restate a rule the repository does not hold.
+
+            This prompt deliberately does **not** list those conventions. It
+            used to, and the copy drifted: it came to claim error codes live in
+            a central `*Errors` class, which this repository explicitly rejects,
+            and to describe an EF mapping API that does not exist in the version
+            targeted here. A reviewer following it would have reported correct
+            code as broken. One rule, one owner -- the owner is the file, and
+            this prompt points at it.
+
+            So: **read, do not recall.** Generic advice goes wrong here in four
+            places, so open each before you review a line it touches.
+
+            - The **Conventions** section of `AGENTS.md` -- request naming and
+              return types, where a request and its handler live, DTO mapping,
+              how errors are constructed, and id generation. Several of these
+              look like mistakes if you are thinking of MediatR or AutoMapper,
+              and are not.
+            - The **Gotchas** section of `AGENTS.md` -- the EF Core traps, each
+              written down because it already cost someone real time. Never
+              review EF mapping from general knowledge: this repository pins an
+              EF version whose behaviour differs from the published
+              documentation, and that gap is the single most expensive trap
+              here.
+            - The **Testing seams** section of `AGENTS.md` -- which seams exist
+              and, more importantly, which one was considered and deliberately
+              rejected. A test in the rejected seam is a finding even though it
+              passes.
+            - `tests/Todo.ArchitectureTests/Rules.cs` -- the inventory of what
+              the suite guarantees today, and the file to cite when a violation
+              is already covered.
+
+            Quote the file you are enforcing. If you cannot find a rule written
+            down in one of these, it is not a rule, and a comment asserting it
+            is a comment you should not post.
+
+            ## Layering
+
+            Check the dependency rule in both directions. Domain knows nothing;
+            Api knows everything. Watch in particular for an ORM namespace
+            (`Microsoft.EntityFrameworkCore`, `Microsoft.Data.SqlClient`)
+            appearing in Domain, Application or Api -- the rule forbids the
+            namespace, not the project reference.
+
+            The architecture tests in `tests/Todo.ArchitectureTests/Rules.cs`
+            are the enforcement, and they run in their own check. So: if a
+            layering violation is already covered by a rule there, say which
+            rule will catch it and move on -- do not re-litigate it at length.
+            If this pull request introduces a rule-shaped convention that
+            **no** test covers, that gap is itself worth raising, and if it
+            populates a previously empty layer, say that the corresponding
+            `Dormant` rule now needs promoting to `Live`.
+
+            ## What to do
+
+            1. Start with `gh pr diff` to get the change, and
+               `gh pr view` for its description and intent.
+            2. Review **only the lines this diff touches.** Read surrounding
+               files when you need context to judge a changed line -- never to
+               find new things to comment on. Pre-existing problems in untouched
+               code are out of scope.
+            3. Post each finding as an inline review comment anchored to the
+               line it is about, using
+               `mcp__github_inline_comment__create_inline_comment`. Name the
+               rule and where it is written down, then give the concrete fix.
+            4. Finish with exactly one top-level summary comment via
+               `gh pr comment`: a sentence on what the change does, then your
+               findings grouped as **must fix** (a documented rule is broken)
+               and **worth considering** (judgement). If you found nothing,
+               say so in one line -- that is a useful review too.
+
+            ## Tone
+
+            Be specific and be brief. Every comment must name the rule it
+            enforces; a comment you cannot ground in `AGENTS.md`, a layer's
+            `AGENTS.md`, a decision record or an outright bug is a comment you
+            should not post. Do not comment on formatting the build already
+            enforces, do not summarise the diff back to its author, and do not
+            praise. Ten precise comments are worth less than three that are
+            right.

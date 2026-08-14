@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Architecture rules live in their own project so they can run as a fast CI check
+    with no database container.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Todo.Domain\Todo.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Todo.Application\Todo.Application.csproj" />
+    <ProjectReference Include="..\..\src\Todo.Infrastructure\Todo.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Todo.Api\Todo.Api.csproj" />
+  </ItemGroup>
+
+</Project>

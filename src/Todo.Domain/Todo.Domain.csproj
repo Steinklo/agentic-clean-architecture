@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Every compiler property is inherited from Directory.Build.props, and every package
+    version from Directory.Packages.props.
+
+    Domain must gain no ProjectReference, and no PackageReference beyond the mediator
+    abstractions - DomainEvent implements Mediator's INotification. This is enforced by
+    an architecture test, not by convention.
+  -->
+
+  <ItemGroup>
+    <PackageReference Include="Mediator.Abstractions" />
+  </ItemGroup>
+
+</Project>

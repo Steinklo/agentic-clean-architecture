@@ -1,0 +1,38 @@
+## .NET build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+TestResults/
+*.trx
+*.coverage
+coverage.*.xml
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+*.DotSettings.user
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+
+## Local Claude Code settings (personal, not shared)
+.claude/settings.local.json
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Local environment
+.env
+.env.local
+
+## Working notes for building this template -- specs, tickets, scratch files.
+## Never ships to a clone: it is the scaffolding, not the product.
+.scratch/

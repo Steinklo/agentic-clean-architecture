@@ -1,0 +1,546 @@
+# The documentation agent -- the regeneration half of the documentation guard (issue 15).
+#
+# .github/workflows/protected-paths.yml is the half that says "you may not hand
+# edit these files". This is the half that says "you do not have to": on every
+# pull request commit, Claude regenerates the documents listed in
+# docs/DOC-RULES.md from the code as it stands and pushes the correction onto
+# the same branch. Code and its documentation are therefore reviewed together,
+# and a pull request cannot merge with documentation that contradicts it.
+#
+# ---------------------------------------------------------------------------
+# AUTHENTICATION IS TWO INDEPENDENT THINGS. Neither substitutes for the other.
+#
+#   1. Claude auth -- CLAUDE_CODE_OAUTH_TOKEN, a subscription (Pro/Max) token
+#      minted by `claude setup-token`, passed as `claude_code_oauth_token`.
+#      It is tied to one person's plan, so every clone mints its own.
+#      Teams billing through the API set ANTHROPIC_API_KEY instead and pass it
+#      as `anthropic_api_key`; the two inputs are alternatives, not a pair.
+#
+#   2. GitHub auth -- a custom GitHub App (AGENT_APP_ID + AGENT_APP_PRIVATE_KEY),
+#      exchanged for an installation token and passed as `github_token`, and
+#      used to check out and to push.
+#
+#      WHY NOT THE BUILT-IN GITHUB_TOKEN: a push made with it deliberately does
+#      not trigger workflows. The doc commit would land and pr-build,
+#      architecture and protected-paths would all still be reporting against
+#      the *previous* commit -- a green pull request describing code that is no
+#      longer in it. An App installation token has no such suppression, which
+#      is the entire reason an App is required. See docs/setup.md.
+#
+#      `permissions:` below therefore keeps the built-in token read-only. Write
+#      access arrives only as the App token, from a secret, which a fork cannot
+#      reach.
+# ---------------------------------------------------------------------------
+#
+# WHY THERE IS NO `paths:` FILTER. The same reason pr-build.yml has none: the
+# document globs live exactly once, in .protected-paths.json, and a trigger
+# filter here would be a second copy of them -- which is the drift the guard
+# forbids and scripts/verify-protected-paths.mjs fails the build over. Every
+# skip in this workflow is therefore decided *inside* the job, after the check
+# run already exists, so the check always reports a status and can safely be
+# made a required one (issue 13's lesson: a check that vanishes is worse than a
+# check that reports "nothing to do").
+
+name: docs
+
+# `pull_request`, deliberately NOT `pull_request_target`. `pull_request_target`
+# would hand fork-authored code this workflow's secrets and a writable token on
+# the base repository, which is the classic Actions privilege-escalation
+# footgun. Fork pull requests are skipped instead -- see the first step.
+#
+# There is also no `workflow_dispatch`: this workflow pushes to the branch it
+# runs on, and a manual run on the default branch would push generated
+# documentation straight to it, bypassing review.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# One regeneration per pull request. If a second commit lands while a run is in
+# flight, the in-flight run is regenerating documentation for code that no
+# longer exists, so cancelling it is strictly correct -- and it is also the
+# cheap half of the loop guard below.
+concurrency:
+  group: docs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # ----------------------------------------------------- THE DOCUMENTATION GUARD
+  # This is the agent's half of the exemption, and it belongs HERE and nowhere
+  # else. claude-code-action runs Claude Code inside this workspace, which loads
+  # .claude/settings.json and with it the PreToolUse hook -- the same hook that
+  # denies a human's Edit against an agent-owned path. Without this, the agent
+  # would be blocked from writing the very files it exists to maintain.
+  #
+  # It must NOT be set in .github/workflows/protected-paths.yml: the matcher
+  # honours this variable in --check mode too, so setting it there would
+  # silently turn the guard into a no-op. That workflow exempts this agent by
+  # commit authorship instead -- see .github/scripts/protected-paths-guard.sh.
+  PROTECTED_PATHS_BYPASS: "1"
+
+  # The loop guard's marker. It is a git trailer on the agent's own commits, and
+  # finding it on the head commit is how a run recognises its own work and stops
+  # rather than regenerating what it just generated. Changing this string
+  # changes it in both places at once, which is why it is here and not inline.
+  AGENT_TRAILER: "Docs-Agent: regenerated"
+
+jobs:
+  regenerate:
+    # Keep this job id and the workflow name stable: together they form the
+    # check name "docs / regenerate" that branch protection would be configured
+    # with.
+    name: regenerate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      # --------------------------------------------------------------- forks --
+      # A pull request from a fork gets no secrets -- neither the Claude token
+      # nor the App credentials -- so the action cannot authenticate at all.
+      # There is nothing to try and nothing to retry; the only honest outcomes
+      # are "explain and pass" or "fail every external contribution". This picks
+      # the first.
+      #
+      # The explanation goes to the job summary rather than to a pull request
+      # comment, because on a fork pull request the built-in GITHUB_TOKEN is
+      # read-only as well -- posting a comment would need `pull_request_target`,
+      # which this design rejects outright. The summary is rendered on the check
+      # itself, one click from the Checks tab, and unlike a comment it cannot be
+      # posted twice.
+      # Two reasons this run may have nothing to do, and both report success.
+      # A fork cannot reach the secrets; a fresh clone has none to reach. Neither
+      # is a defect in the pull request, and a red check that says otherwise
+      # trains people to ignore red checks.
+      - name: Decide whether the agent can run at all
+        id: origin
+        env:
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          # Whether the credentials exist, never their values. An unset secret is
+          # the empty string in an expression, so each of these is '' when absent
+          # and 'set' otherwise; nothing secret enters the environment.
+          APP_CREDENTIALS: ${{ (secrets.AGENT_APP_ID && secrets.AGENT_APP_PRIVATE_KEY) && 'set' || '' }}
+          AGENT_CREDENTIAL: ${{ (secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.ANTHROPIC_API_KEY) && 'set' || '' }}
+        run: |
+          set -euo pipefail
+
+          decline() {
+            echo "ready=false" >>"$GITHUB_OUTPUT"
+            {
+              echo "### Documentation not regenerated"
+              echo
+              echo "$1"
+            } >>"$GITHUB_STEP_SUMMARY"
+            echo "NOT REGENERATING: $1"
+            exit 0
+          }
+
+          if [ "${SAME_REPO}" = "true" ]; then
+            missing=""
+            [ -z "${APP_CREDENTIALS:-}" ] && missing="the GitHub App (\`AGENT_APP_ID\` and \`AGENT_APP_PRIVATE_KEY\`)"
+            if [ -z "${AGENT_CREDENTIAL:-}" ]; then
+              [ -n "${missing}" ] && missing="${missing} and "
+              missing="${missing}an agent credential"
+            fi
+
+            if [ -n "${missing}" ]; then
+              decline "This repository has not configured ${missing}, so the documentation agent
+          cannot run. That is the expected state for a fresh clone of this template -- the
+          architecture rules, the build, the tests and the protected-path guard all run without
+          any credential, and they are the checks that decide whether this pull request is sound.
+
+          \`docs/setup.md\` covers wiring it up, including why the built-in \`GITHUB_TOKEN\`
+          cannot be used for the push. Until then the maps under \`AGENTS.md\` are maintained by
+          hand, and this check reports success rather than red."
+            fi
+
+            echo "ready=true" >>"$GITHUB_OUTPUT"
+            echo "Branch lives in this repository and the credentials are configured."
+            exit 0
+          fi
+
+          echo "ready=false" >>"$GITHUB_OUTPUT"
+
+          echo "Pull request head is ${HEAD_REPO}, a fork. Secrets are not available."
+          {
+            echo '### Documentation not regenerated -- pull request is from a fork'
+            echo
+            echo "This branch lives in \`${HEAD_REPO}\`, so GitHub withholds this"
+            echo 'repository'"'"'s secrets from the run. The documentation agent needs two of'
+            echo 'them -- the Claude token and the GitHub App credentials -- and can do'
+            echo 'nothing without either, so it stopped here instead of failing.'
+            echo
+            echo '**What happens next.** A maintainer regenerates the documentation after'
+            echo 'this pull request merges, on a branch in this repository, where the agent'
+            echo 'can authenticate. Nothing is expected of you.'
+            echo
+            echo 'This check reports success on purpose: an external contribution must not'
+            echo 'be blocked by a credential it was never going to be given. The'
+            echo '`protected-paths` check still runs on this pull request -- it reads a diff'
+            echo 'and needs no secrets.'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      # The App token is minted before the checkout so that the checkout stores
+      # *its* credentials, and the push at the end needs no second credential
+      # dance and no token in a remote URL.
+      #
+      # The App needs exactly three permissions, and docs/setup.md
+      # (issue 17) asks for exactly these:
+      #   Contents:      read & write  -- check out the branch, push the commit
+      #   Pull requests: read & write  -- read pull request context; shared with
+      #                                   the review agent (issue 16)
+      #   Metadata:      read-only     -- mandatory for every GitHub App
+      - name: Mint a GitHub App installation token
+        id: app-token
+        if: ${{ steps.origin.outputs.ready == 'true' }}
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+          # Requested explicitly rather than inheriting everything the App was
+          # granted, so this token cannot quietly grow rights later. Each must be
+          # a subset of the App's own permissions or minting fails.
+          permission-contents: write
+          permission-pull-requests: write
+
+      # The head *branch*, not the merge commit actions/checkout would give us
+      # by default: the correction has to land on the contributor's branch, and
+      # a detached merge commit cannot be pushed anywhere useful.
+      #
+      # fetch-depth: 0 because the protected-path guard is run against this
+      # commit before it is pushed, and that needs real history.
+      - name: Check out the pull request branch
+        if: ${{ steps.origin.outputs.ready == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      # ---------------------------------------------------------- loop guard --
+      # The App token retriggers workflows. That is the whole point of using it
+      # -- and it means this workflow's own push fires `synchronize` and starts
+      # this workflow again. Without a guard that is an infinite loop billed by
+      # the minute.
+      #
+      # The guard is the commit trailer, not the author. Author alone would be
+      # wrong in both directions: it would also silence the agent for Dependabot
+      # and every other bot whose changes genuinely need documenting, and it
+      # says nothing about *which* bot commit this is. The trailer is written by
+      # exactly one thing -- the commit step below -- so its presence on the head
+      # commit means "the last thing that happened here was my own regeneration".
+      #
+      # Authorship is checked too, so that a human who happens to paste the
+      # trailer into a commit message cannot switch the agent off.
+      #
+      # One human commit therefore produces at most one agent commit: after the
+      # push the head is the agent's, the next run stops here, and the run after
+      # that only happens because a human pushed again.
+      - name: Decide whether this run would be regenerating its own work
+        id: loop
+        if: ${{ steps.origin.outputs.ready == 'true' }}
+        run: |
+          set -euo pipefail
+
+          author="$(git log -1 --pretty='%an <%ae>')"
+          message="$(git log -1 --pretty='%B')"
+
+          echo "Head commit author:  ${author}"
+          echo "Head commit subject: $(git log -1 --pretty='%s')"
+
+          mine=false
+          if printf '%s' "${message}" | grep -qF "${AGENT_TRAILER}" \
+            && printf '%s' "${author}" | grep -qiE '\[bot\]'; then
+            mine=true
+          fi
+
+          if [ "${mine}" = true ]; then
+            echo "regenerate=false" >>"$GITHUB_OUTPUT"
+            echo "This is the agent's own commit; stopping so the run does not retrigger itself."
+            {
+              echo '### Documentation already regenerated'
+              echo
+              echo 'The head commit of this pull request is this agent'"'"'s own regeneration'
+              echo 'commit, so there is nothing new to derive from. The next run happens when'
+              echo 'a human pushes again.'
+            } >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "regenerate=true" >>"$GITHUB_OUTPUT"
+          echo "Head commit is not the agent's; regenerating."
+
+      # --------------------------------------------------------- identity ----
+      # CRITICAL. protected-paths.yml exempts commits *per commit, by author*,
+      # matching "%an <%ae>" against BOT_AUTHORS (default: the literal "[bot]").
+      # So this agent must AUTHOR its commits as the App, not merely push them.
+      # Commit under the runner's default identity and the agent fails its own
+      # guard on its own pull request.
+      #
+      # The App's identity is not guessable: the email must carry the bot
+      # account's numeric user id, which is looked up from the slug the token
+      # step reports. Anything that goes wrong here is fatal on purpose -- a
+      # fallback identity would be a silently broken guard.
+      - name: Author as the app, so the protected-path guard exempts the commit
+        if: ${{ steps.loop.outputs.regenerate == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+
+          name="${APP_SLUG}[bot]"
+          # %5B/%5D: the brackets in the login are not URL-safe.
+          id="$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq '.id')"
+          email="${id}+${name}@users.noreply.github.com"
+
+          git config user.name "${name}"
+          git config user.email "${email}"
+
+          author="${name} <${email}>"
+          echo "Committing as: ${author}"
+
+          # The same default BOT_AUTHORS pattern .github/scripts/protected-paths-guard.sh
+          # applies. Asserted here so a misconfiguration fails before the agent
+          # has done twenty minutes of work, rather than after.
+          if ! printf '%s' "${author}" | grep -qiE '\[bot\]'; then
+            echo "::error::Git identity '${author}' does not match the protected-path guard's bot pattern; the commit would fail the guard."
+            exit 1
+          fi
+
+      # --------------------------------------------------------------- claude --
+      # The agent reads docs/DOC-RULES.md and edits files. It does not touch git:
+      # committing, verifying and pushing are done below, in shell, so that the
+      # commit message carries the loop-guard trailer, the identity is the one
+      # asserted above, and the guard is run over the result before anything is
+      # pushed. (claude-code-action can commit on its own, and its default
+      # identity is `claude[bot]`, which would satisfy the guard -- but it would
+      # not carry the trailer, so the loop guard would not recognise it.)
+      #
+      # ANTHROPIC_API_KEY is the alternative to the subscription token: replace
+      # `claude_code_oauth_token` with `anthropic_api_key` and the secret with
+      # ANTHROPIC_API_KEY. They are alternatives; setting both is not a fallback.
+      - name: Regenerate the documentation
+        if: ${{ steps.loop.outputs.regenerate == 'true' }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          # No Bash: everything the agent needs is reading and writing files, and
+          # withholding the shell is what keeps "the workflow owns git" true.
+          claude_args: '--allowedTools "Read,Glob,Grep,Edit,Write" --max-turns 40'
+          prompt: |
+            You are the documentation agent for this repository, running on pull
+            request #${{ github.event.pull_request.number }}.
+
+            Read `docs/DOC-RULES.md` first. It is human-owned and it is the
+            contract: it names every map you maintain, what each is derived
+            from, the form you must write in, what you must never touch, and
+            when you may propose a decision record. Follow it exactly. Where
+            this prompt and that file disagree, that file wins.
+
+            THE ONE DISTINCTION THAT MATTERS. This repository separates rules
+            from maps. Rules live in `docs/` and say how things must be built;
+            people write them, and you never do. Maps are the `AGENTS.md` files
+            and say what exists and where; they change whenever code changes,
+            which is why they are yours. You are here to keep the maps true, not
+            to have opinions about the rules -- and if the code and a rule
+            disagree, the code is wrong and you say so rather than editing the
+            rule to match.
+
+            Your job on this run:
+
+            1. Work out what this pull request changed, by comparing the working
+               tree against the merge base
+               `${{ github.event.pull_request.base.sha }}`.
+            2. Regenerate every map whose sources this pull request touched, from
+               the source tree itself and not from the map's own previous text.
+               A map is an index: what exists, where it lives, in a table where a
+               table will do. Never explain why -- that is a rule, and it is
+               already written in `docs/`. Link there and stop.
+            3. Apply the decision-record gate in DOC-RULES.md. It is meant to be
+               failed: almost every pull request needs no record at all. If it
+               genuinely passes, add ONE new file under `docs/adr/` with
+               `status: proposed` in its front matter. Never `accepted`, never
+               `TEMPLATE.md`, and never edit a record that already exists.
+
+            You may write exactly two things: the `AGENTS.md` maps, and one new
+            file under `docs/adr/`. Nothing else -- not `docs/` itself, not
+            `.claude/`, not `README.md`, `src/`, `tests/`, build files or
+            anything under `.github/`. A step after you checks this and fails the
+            run if you wrote anywhere else, so a slip is caught rather than
+            pushed. Do not run git; the workflow commits what you leave behind.
+
+            If the documentation already matches the code, change nothing. That
+            is a good outcome, not a failure -- there is no value in a commit
+            that only reflows prose.
+
+      # ------------------------------------------------------------- self-check --
+      # The agent was told it may write only the AGENTS.md maps and one new
+      # decision record. This makes that a rule rather than an instruction.
+      #
+      # It reuses the same matcher the protected-path guard uses, in the opposite
+      # direction. That guard asks "did a HUMAN touch something the agent owns?"
+      # and fails on a hit. This asks "did the AGENT touch something it does not
+      # own?" -- so a path the matcher reports as NOT agent-owned is the
+      # violation here. Same list, same script, one source of truth; only the
+      # sense of the answer differs.
+      #
+      # Without this, "the agent must not edit docs/" is a sentence in a prompt,
+      # and a prompt is the one enforcement mechanism this repository does not
+      # trust.
+      - name: The agent wrote only what it owns
+        if: ${{ steps.loop.outputs.regenerate == 'true' }}
+        run: |
+          set -euo pipefail
+
+          changed=()
+          while IFS= read -r line; do
+            [ -n "${line}" ] && changed+=("${line}")
+          done < <(git status --porcelain --untracked-files=all | cut -c4-)
+
+          if [ ${#changed[@]} -eq 0 ]; then
+            echo "The agent changed nothing. Nothing to check."
+            exit 0
+          fi
+
+          echo "The agent changed ${#changed[@]} file(s):"
+          for file in "${changed[@]}"; do echo "  ${file}"; done
+          echo
+
+          trespass=()
+          for file in "${changed[@]}"; do
+            # Exit 1 means the matcher considers it agent-owned, which is what we
+            # want here. Exit 0 means it belongs to a human. Exit 2 means the
+            # matcher could not run, and must not be read as either.
+            set +e
+            node scripts/protected-paths.mjs --check "${file}" >/dev/null 2>&1
+            verdict=$?
+            set -e
+
+            case "${verdict}" in
+              1) ;;
+              0) trespass+=("${file}") ;;
+              *) echo "protected-paths.mjs could not classify ${file} (exit ${verdict})." >&2
+                 exit 1 ;;
+            esac
+          done
+
+          if [ ${#trespass[@]} -gt 0 ]; then
+            {
+              echo "### Documentation agent wrote outside its own files"
+              echo
+              echo 'It may write the `AGENTS.md` maps and one new record under `docs/adr/`. It also wrote:'
+              echo
+              for file in "${trespass[@]}"; do echo "  - \`${file}\`"; done
+              echo
+              echo 'Nothing was pushed. `docs/` states the rules and belongs to people; if a rule is'
+              echo 'wrong, a human changes it.'
+            } >>"${GITHUB_STEP_SUMMARY}"
+
+            echo "REFUSING TO PUSH. The agent wrote outside the files it owns:" >&2
+            for file in "${trespass[@]}"; do echo "  ${file}" >&2; done
+            exit 1
+          fi
+
+          echo "OK: every change is a file the agent owns."
+
+      # ---------------------------------------------------------------- commit --
+      # `git add -A` rather than a list of documentation paths, deliberately:
+      # that list already exists exactly once, in .protected-paths.json, and
+      # writing it here would be the second copy the guard forbids and
+      # scripts/verify-protected-paths.mjs fails the build over. What the agent
+      # may write is constrained by the prompt and by the tools it was given;
+      # what it actually wrote is printed here and reviewed on the pull request.
+      - name: Commit whatever the agent changed
+        id: commit
+        if: ${{ steps.loop.outputs.regenerate == 'true' }}
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "committed=false" >>"$GITHUB_OUTPUT"
+            echo "The agent changed nothing; the documentation already matches the code."
+            {
+              echo '### Documentation is already up to date'
+              echo
+              echo 'The agent regenerated the documents affected by this pull request and'
+              echo 'produced no change, so there is nothing to push.'
+            } >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          files="$(git diff --cached --name-only)"
+          echo "Files the agent changed:"
+          printf '%s\n' "${files}" | sed 's/^/  /'
+
+          # Three -m flags: subject, body, trailer. The trailer must stay the
+          # last paragraph -- the loop guard above looks for it.
+          git commit \
+            --message "docs: regenerate for #${PR_NUMBER}" \
+            --message "Regenerated from docs/DOC-RULES.md against the code on this branch, so this pull request cannot merge with documentation that contradicts it." \
+            --message "${AGENT_TRAILER}"
+
+          echo "committed=true" >>"$GITHUB_OUTPUT"
+
+          {
+            echo '### Documentation regenerated'
+            echo
+            echo 'The agent pushed a commit to this branch. Review it with the code -- it is'
+            echo 'derived from `docs/DOC-RULES.md`, and if it says something wrong, the fix'
+            echo 'is to that file or to the code, not to the generated document.'
+            echo
+            echo '| File |'
+            echo '| --- |'
+            printf '%s\n' "${files}" | sed 's/^/| `/; s/$/` |/'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      # The agent proving it passes its own rule, before the rule gets the
+      # chance to fail the pull request.
+      #
+      # Scoped to the commit just made (HEAD~1..HEAD) rather than the whole pull
+      # request: any *other* commit here is a human's, and judging it is
+      # protected-paths.yml's job, not this workflow's. A red mark here must
+      # only ever mean "the agent's own commit is not exempt".
+      #
+      # PROTECTED_PATHS_BYPASS is cleared for this step alone. The matcher
+      # honours it in --check mode, so leaving the workflow-level "1" in place
+      # would make this verify nothing at all.
+      - name: Verify the agent's commit satisfies the protected-path guard
+        if: ${{ steps.commit.outputs.committed == 'true' }}
+        env:
+          PROTECTED_PATHS_BYPASS: ""
+          BASE_SHA: HEAD~1
+          HEAD_SHA: HEAD
+        run: |
+          set -euo pipefail
+
+          report="$(bash .github/scripts/protected-paths-guard.sh)"
+          printf '%s\n' "${report}"
+
+          # Exit 0 alone is not enough: it is also what "this commit touched no
+          # protected path" looks like. The guard must have skipped the commit
+          # *by authorship*, which is the line it prints per exempt commit.
+          if ! printf '%s' "${report}" | grep -q '^  exempt '; then
+            echo "::error::The guard did not treat the agent's commit as bot-authored. Check the git identity step."
+            exit 1
+          fi
+
+      # No force, no rebase: a non-fast-forward push here means a human pushed
+      # while the agent was working, and their commit must win. The run fails,
+      # and their push has already started the next one.
+      - name: Push the correction to the pull request branch
+        if: ${{ steps.commit.outputs.committed == 'true' }}
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:refs/heads/${HEAD_REF}"

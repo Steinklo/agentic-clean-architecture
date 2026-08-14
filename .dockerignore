@@ -1,0 +1,47 @@
+# Everything the API image does not need. The build context is uploaded to the Docker
+# daemon before the first instruction runs, so anything left in here is paid for on
+# every `docker compose build` - and build output copied from the host is worse than
+# useless, because it can shadow what the container's own `dotnet publish` produces.
+
+## .NET build output
+**/bin/
+**/obj/
+artifacts/
+TestResults/
+*.trx
+*.coverage
+coverage.*.xml
+
+## Source control and CI
+.git/
+.gitignore
+.gitattributes
+.github/
+
+## Editors and IDEs
+.vs/
+.idea/
+*.user
+*.suo
+*.DotSettings.user
+
+## Agent and documentation material - none of it compiles
+.claude/
+.scratch/
+docs/
+**/*.md
+.protected-paths.json
+scripts/
+
+## Tests. The image builds src/Todo.Api/Todo.Api.csproj, which pulls in the three
+## projects it references and nothing else; the test projects are not part of it.
+tests/
+
+## The container's own artefacts, so a nested copy can never end up in the context
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+## Local environment
+.env
+.env.local
