@@ -61,6 +61,18 @@ They are **alternatives, not a pair**; setting both is not a fallback.
 If you swap these two workflows to a different agent, this section is the only part that changes.
 The App above stays, because the retrigger problem stays.
 
+## Checking what is actually configured
+
+Nothing here verifies itself, so check by hand before wondering why a workflow declined:
+
+```bash
+gh secret list                      # AGENT_APP_ID, AGENT_APP_PRIVATE_KEY, and one agent credential
+gh api repos/{owner}/{repo}/installation --jq .app_slug   # the App, if installed
+```
+
+Both agent workflows also say what they are missing in their job summary on every pull request, so
+a run that declined is usually quicker to read than either command.
+
 ## Optional: make the guard required
 
 The protected-path check ships as an ordinary check rather than branch protection, so it works the
