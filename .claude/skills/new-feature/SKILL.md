@@ -89,18 +89,22 @@ Copy `src/Todo.Domain/TodoLists/Entities/TodoItem.cs`.
 
 ## 5. A new domain event and its handler
 
-**Decide whether the event should exist before you write it.** Raise one only when something must
-happen because of it. Mediator has no concept of an optional handler — `error MSG0005:
-MediatorGenerator found message without any registered handler: <YourEvent>` fails the build — so an
-event nothing reacts to still costs an event file, a handler file and a log entry, and leaves a
-handler whose whole body is a log line and `return ValueTask.CompletedTask`. That is not a cheap
-placeholder for later; it is three files of ceremony standing in for a decision not taken.
+**One event per state transition the aggregate actually has — and none that is not one.** Creation
+counts: §2 requires `Create` to raise `<Aggregate>CreatedEvent`. So an aggregate with two
+transitions on top of creation has exactly three events, which is the shape `TodoList` has —
+created / item-completed / archived.
 
-An aggregate can settle three ways and still deserve one event, if only one of them has a
-consequence. "It would be symmetrical" is not a reason. Neither is "a test can assert on the log
-id" — assert on the state the caller can observe instead.
+**A handler that only logs is not waste, and is not a placeholder.** It is the audit trail and the
+seam §11's dispatch test asserts on. Mediator has no concept of an optional handler — `error
+MSG0005: MediatorGenerator found message without any registered handler: <YourEvent>` fails the
+build — so the handler arrives with the event whether or not it has anything to do yet.
+`TodoListCreatedEventHandler` is the worked example and says so in its own remarks.
 
-An event that has earned its place is **two files plus a log line**, none of them optional.
+What to avoid is the event that corresponds to no transition — raised because a symmetry looked
+incomplete, or because something wanted a log id to assert on. That one costs three files and buys
+nothing. Count the transitions first; if the event is not one of them, do not raise it.
+
+An event is **two files plus a log line**, none of them optional.
 
 1. `src/Todo.Domain/<Feature>/Events/<Name>Event.cs` — `public sealed record <Name>Event(Guid <Aggregate>Id, ...) : DomainEvent(<Aggregate>Id);`, carrying primitives rather than the aggregate.
 2. `src/Todo.Application/<Feature>/Events/<Name>EventHandler.cs` — `internal sealed class <Name>EventHandler(ILogger<<Name>EventHandler> logger) : INotificationHandler<<Name>Event>`, returning `ValueTask.CompletedTask` when it has nothing to await.
