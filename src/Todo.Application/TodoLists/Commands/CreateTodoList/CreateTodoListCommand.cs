@@ -1,5 +1,6 @@
 using Mediator;
 using Todo.Application.Common.Persistence;
+using Todo.Application.TodoLists.Abstractions;
 using Todo.Application.TodoLists.Dtos;
 using Todo.Domain.Common;
 using Todo.Domain.TodoLists;

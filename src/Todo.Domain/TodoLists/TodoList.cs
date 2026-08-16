@@ -63,6 +63,11 @@ public sealed class TodoList : AggregateRoot<Guid>
     /// <summary>
     /// Adds a TodoItem to this TodoList. The only way a TodoItem comes into existence.
     /// </summary>
+    /// <remarks>
+    /// Raises no domain event, deliberately. Filling a list in is the list being written rather
+    /// than something that happened to it; what the list is later asked about is which items were
+    /// completed and whether it was archived, and those two raise.
+    /// </remarks>
     public Result<TodoItem> AddItem(string description)
     {
         if (ArchivedRejection() is { } archived)

@@ -215,6 +215,15 @@ internal static class Rules
         new("Every DTO lives in its feature's Dtos namespace", RuleCoverage.Live, MeaningfulAt: 2);
 
     /// <summary>
+    /// Thin: one feature exists, so this passes by construction rather than by evidence — the
+    /// folders it demands were laid out in the same change. What it fixes is a feature root that
+    /// lists folders <em>and</em> a loose file, where the folders say what they hold and the file
+    /// says nothing, so the reader has to open it to find out.
+    /// </summary>
+    public static ArchitectureRule NothingLivesAtAFeatureRoot { get; } =
+        new("No type lives directly at a feature's root in Todo.Application", RuleCoverage.Thin, MeaningfulAt: 2);
+
+    /// <summary>
     /// Live over 5 endpoints. The route prefix and OpenAPI tag are stated once on the feature's
     /// base class, so a feature cannot end up half under one route and half under another.
     /// </summary>

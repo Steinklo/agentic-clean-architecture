@@ -18,11 +18,11 @@ Feature per aggregate, then a folder per use case. `<Feature>` is the **plural**
 | File | Path |
 |---|---|
 | Aggregate root | `src/Todo.Domain/<Feature>/<Aggregate>.cs`, at the feature root |
-| Child entity / value object / domain event | `src/Todo.Domain/<Feature>/` then `Entities/`, `ValueObjects/`, `Events/` |
+| Child entity / value object / domain event / enum | `src/Todo.Domain/<Feature>/` then `Entities/`, `ValueObjects/`, `Events/`, `Enums/` |
 | Command or query: request + handler in one file, and its validator beside it | `src/Todo.Application/<Feature>/Commands/<UseCase>/` or `Queries/<UseCase>/` |
 | DTO | `src/Todo.Application/<Feature>/Dtos/` — **not** the use-case folder |
 | Domain-event handler, and `<Aggregate>EventLog.cs` | `src/Todo.Application/<Feature>/Events/` |
-| Repository interface | `src/Todo.Application/<Feature>/I<Aggregate>Repository.cs`, at the feature root |
+| Repository interface, and any other port the feature declares | `src/Todo.Application/<Feature>/Abstractions/` |
 | Pipeline behaviour | `src/Todo.Application/Common/Behaviours/` |
 | EF configuration | `src/Todo.Infrastructure/Persistence/Configurations/<Type>Configuration.cs` |
 | Repository implementation | `src/Todo.Infrastructure/Persistence/Repositories/` |
@@ -31,6 +31,8 @@ Feature per aggregate, then a folder per use case. `<Feature>` is the **plural**
 | Aggregate tests | `tests/Todo.UnitTests/<Feature>/<Aggregate>Tests.cs` |
 
 **Create the use-case folder**; files loose in `Commands/` are wrong (`Rules.RequestsLiveInAUseCaseFolder`). DTOs are the exception because they are shared — `TodoListDto` is returned by both `CreateTodoList` and `GetTodoList`, so it belongs to neither folder (`Rules.DtosLiveInTheirFeaturesDtosNamespace`).
+
+**In `Todo.Application`, nothing sits at a feature's root** (`Rules.NothingLivesAtAFeatureRoot`). Every folder there says what it holds — `Abstractions/`, `Commands/`, `Dtos/`, `Events/`, `Queries/` — so a file beside them says nothing until it is opened. A folder holding one file is not an argument against this: `Dtos/` holds one today and has its own rule. `Todo.Application/Common/` is not a feature, and `ConfigureServices.cs` is in no feature at all; neither is examined.
 
 Namespaces follow folders and a rule holds them to it (`Rules.NamespacesFollowFolders`), which is what lets the folder rules above assert on a namespace and mean a directory. Move a file and its namespace changes with it.
 
@@ -42,7 +44,7 @@ Copy `src/Todo.Domain/TodoLists/TodoList.cs`. It must have all of:
 - A **private** constructor taking `Guid id` and its value objects, chaining `: base(id)`. Never a parameterless one beside it: EF binds the constructor with the fewest property parameters, so an empty one would win.
 - Every property `{ get; private set; }` (`Rules.EntitiesHaveNoPublicSetters`). Child collections are `IReadOnlyCollection<T>` over a `private readonly List<T> _items = [];` you initialise yourself; EF writes the field.
 - `public static Result<<Aggregate>> Create(...)` taking **scalars only**: call each value object's `Create`, return `Result.Failure<T>(x.Error)` on the first failure, mint the id with `Guid.CreateVersion7()`, `RaiseDomainEvent(new <Aggregate>CreatedEvent(...))`, return `Result.Success(instance)`.
-- Every state transition is a method returning `Result` or `Result<T>`, with its `DomainError` constructed **inline at the guard that rejects**. Choose the category deliberately — it is the only thing deciding the caller's status: `Validation` → 400, `NotFound` → 404, `Conflict` → 409, `Failure` → 500. A refused transition is a `Conflict`.
+- Every state transition is a method returning `Result` or `Result<T>`, with its `DomainError` constructed **inline at the guard that rejects**. Choose the category deliberately — it is the only thing deciding the caller's status: `Validation` → 400, `NotFound` → 404, `Conflict` → 409, `Failure` → 500. A refused transition is a `Conflict`. **Adding a member to `DomainErrorType` is not a compile error and cannot be made into one**, so a new category with no arm in `ResultExtensions.StatusCodeFor` reaches callers as a silent 500 — add the arm in the same change.
 - Dotted error codes, unique across `Todo.Domain` — `ErrorCodeUniquenessTests` scans its source for `DomainError.<Category>("literal"` and fails on a repeat. One rule rejecting at two entry points is written once in a private helper returning `DomainError?`, as `TodoList.ArchivedRejection()` does.
 
 In the same change it then needs a creation event and handler (§5), an EF configuration (§2b), a repository (§8), a migration (`add-migration` skill), and an endpoint base class (§10).
@@ -89,13 +91,34 @@ Copy `src/Todo.Domain/TodoLists/Entities/TodoItem.cs`.
 
 ## 5. A new domain event and its handler
 
+**An event marks a transition the aggregate wants on its record — and nothing that is not one.**
+Creation always counts: §2 requires `Create` to raise `<Aggregate>CreatedEvent`. After that it is a
+judgement, and `TodoList` is the worked example of it going both ways: **four mutators, three
+events**. `CompleteItem` and `Archive` raise, because each settles something the list will be asked
+about later. `AddItem` does not — filling a list in is the list being written, not something that
+happened to it.
+
+So not every mutator is a transition. Take the decision once, when you write the mutator, and say so
+in its doc comment when the answer is no; an aggregate where the absence of an event looks like an
+oversight is one where the next person adds it back.
+
+**A handler that only logs is not waste, and is not a placeholder.** It is the audit trail and the
+seam §11's dispatch test asserts on. Mediator has no concept of an optional handler — `error
+MSG0005: MediatorGenerator found message without any registered handler: <YourEvent>` fails the
+build — so the handler arrives with the event whether or not it has anything to do yet.
+`TodoListCreatedEventHandler` is the worked example and says so in its own remarks.
+
+What to avoid is the event that corresponds to no transition — raised because a symmetry looked
+incomplete, or because something wanted a log id to assert on. That one costs three files and buys
+nothing. Count the transitions first; if the event is not one of them, do not raise it.
+
 An event is **two files plus a log line**, none of them optional.
 
 1. `src/Todo.Domain/<Feature>/Events/<Name>Event.cs` — `public sealed record <Name>Event(Guid <Aggregate>Id, ...) : DomainEvent(<Aggregate>Id);`, carrying primitives rather than the aggregate.
 2. `src/Todo.Application/<Feature>/Events/<Name>EventHandler.cs` — `internal sealed class <Name>EventHandler(ILogger<<Name>EventHandler> logger) : INotificationHandler<<Name>Event>`, returning `ValueTask.CompletedTask` when it has nothing to await.
 3. A `[LoggerMessage]` entry in `src/Todo.Application/<Feature>/Events/<Aggregate>EventLog.cs`, an `internal static partial class`. **`EventId` is a sequence**: `1000`–`1002` are the pipeline behaviours in `Common/Behaviours/BehaviourLog.cs`, `2000`–`2002` are `TodoListEventLog`. Continue that block for a TodoLists event (next is `2003`); a **new feature starts at the next free thousand**, so a second feature's log begins at `3000`. The id is not decoration — it is what §11's dispatch test matches on, so give every event a distinct one and never renumber an existing one. `Rules.LoggedEventIdsAreUnique` enforces distinctness; which block you take is convention.
 
-Without the handler the build fails with `error MSG0005: MediatorGenerator found message without any registered handler: <YourEvent>`, so **do not raise an event you have no reason to handle** — the handler costs a file whether or not it does anything.
+This is why the decision at the top of this section matters: the handler is not optional, so the only way to avoid a do-nothing handler is to not raise the event.
 
 Handlers run *inside* the unit of work, immediately before the save, so a handler's changes to a tracked aggregate join the same transaction, and events a handler raises are picked up on the next pass.
 
