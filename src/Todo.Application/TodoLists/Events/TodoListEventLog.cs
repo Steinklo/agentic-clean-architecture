@@ -14,6 +14,12 @@ internal static partial class TodoListEventLog
     public static partial void TodoListCreated(ILogger logger, Guid todoListId, string title);
 
     [LoggerMessage(
+        EventId = 2003,
+        Level = LogLevel.Information,
+        Message = "TodoItem {TodoItemId} was added to TodoList {TodoListId}")]
+    public static partial void TodoItemAdded(ILogger logger, Guid todoListId, Guid todoItemId);
+
+    [LoggerMessage(
         EventId = 2001,
         Level = LogLevel.Information,
         Message = "TodoItem {TodoItemId} on TodoList {TodoListId} was completed")]

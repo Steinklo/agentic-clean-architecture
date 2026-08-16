@@ -78,6 +78,7 @@ public sealed class TodoList : AggregateRoot<Guid>
         }
 
         _items.Add(itemResult.Value);
+        RaiseDomainEvent(new TodoItemAddedEvent(Id, itemResult.Value.Id, itemResult.Value.Description.Value));
 
         return itemResult;
     }

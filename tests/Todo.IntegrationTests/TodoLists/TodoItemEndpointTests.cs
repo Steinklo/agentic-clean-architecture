@@ -24,6 +24,41 @@ namespace Todo.IntegrationTests.TodoLists;
 /// </remarks>
 public sealed class TodoItemEndpointTests(TodoApiFixture fixture) : IntegrationTestBase(fixture)
 {
+    /// <summary>The EventId <c>TodoListEventLog.TodoItemAdded</c> declares.</summary>
+    private const int TodoItemAddedEventId = 2003;
+
+    // IntegrationTestBase takes the fixture and does not expose it, and asserting that an event was
+    // dispatched needs the log capture on it.
+    private readonly TodoApiFixture _fixture = fixture;
+
+    /// <summary>
+    /// Adding a TodoItem raises a domain event, and something handles it.
+    /// </summary>
+    /// <remarks>
+    /// Matched on the EventId rather than the message, so rewording the log line does not break
+    /// this. Nothing outside the process can see a domain event any other way: it is raised in the
+    /// aggregate, dispatched by the unit of work, and never appears in the response.
+    /// </remarks>
+    [Fact]
+    public async Task AddTodoItem_WhenItemIsAdded_DispatchesTodoItemAddedEvent()
+    {
+        var todoList = await CreateTodoListAsync("Weekend shopping");
+
+        // Recording opens here, so what is captured is exactly the add request and not its set-up.
+        using (_fixture.Logs.Record())
+        {
+            var response = await Client.PostAsJsonAsync(
+                ItemsUri(todoList.Id),
+                new { Description = "Buy coffee" });
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        Assert.Contains(
+            _fixture.Logs.Records,
+            record => record.EventId.Id == TodoItemAddedEventId);
+    }
+
     private static readonly Uri _todoLists = new("/api/todo-lists", UriKind.Relative);
 
     [Fact]
