@@ -22,6 +22,9 @@ a hand-written `FromDomain`; and FluentValidation validators.
 - **Each request in its own use-case folder** — `Rules.RequestsLiveInAUseCaseFolder`.
 - **DTOs in the feature's `Dtos` folder**, not the use case that happened to need one first —
   `Rules.DtosLiveInTheirFeaturesDtosNamespace`.
+- **Nothing directly at a feature's root** — `Rules.NothingLivesAtAFeatureRoot`. Every folder in a
+  feature says what it holds, so a port belongs in `Abstractions/` rather than beside them. `Common`
+  is not a feature and `ConfigureServices` is in none, so neither is examined.
 - No HTTP concerns. Handlers return `Result`, never a status code.
 - No domain rule restated in a validator. Validators check shape, the aggregate checks invariants,
   and the validation behaviour returns a `Validation`-categorised failure rather than throwing.
