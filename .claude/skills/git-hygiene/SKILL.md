@@ -82,6 +82,14 @@ node scripts/protected-paths.mjs --check $(git diff --cached --name-only)
 - Exit 2: the matcher could not run. That is not a verdict — fix the script rather than reading it
   as either answer.
 
+**A decision record is yours to write.** `docs/adr/**` is *shared*, not agent-owned, so `--check`
+passes on it: write one yourself, or state the decision and the alternative you rejected in the
+pull request body and let the agent transcribe it. Only you can promote one to `accepted`.
+
+`--check` answers "may **I** write this?". There is a second mode, `--classify`, which names the
+owner instead — the documentation agent's self-check uses it, because "the agent may keep this" is
+a different question with a different answer on a shared path. You want `--check`.
+
 `.protected-paths.json` is the single source of truth for which paths are guarded. **Read it there.
 Copy no pattern from it into any other file** — `node scripts/verify-protected-paths.mjs` fails the
 build when a pattern literal appears a second time, and a second copy that drifts is the exact
@@ -106,8 +114,16 @@ files cannot exist.
 ## 3. The documentation agent's commits on your branch
 
 On every push to a pull request branch, `.github/workflows/docs.yml` regenerates the maps and pushes
-**its own commit onto your branch**, authored as `<app-slug>[bot]` and carrying the
-`Docs-Agent: regenerated` trailer. One human push produces at most one agent commit.
+**its own commits onto your branch**, authored as `<app-slug>[bot]`. There are at most two per human
+push, and they carry different trailers because they are different kinds of work:
+
+| Commit | Trailer | What it is |
+|---|---|---|
+| `docs: regenerate for #N` | `Docs-Agent: regenerated` | Maps re-derived from the code. |
+| `docs: propose a decision record for #N` | `Docs-Agent: proposed-record` | Newly authored prose, which can be wrong in ways a map cannot. Read it. |
+
+The loop guard matches the `Docs-Agent:` **prefix**, so either one stops the next run from
+regenerating this one's work.
 
 The guarded files are legal in the agent's commits and illegal in yours, and that distinction
 survives only while its commits keep their authorship. So:

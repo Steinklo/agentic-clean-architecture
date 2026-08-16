@@ -4,18 +4,18 @@
 the agent writes, what it derives each thing from, the form it must write in, what it may never
 touch, and when it may propose a decision record.
 
-## Two kinds of document
+## Three kinds of document
 
-Everything written down here is one or the other, and the split decides who may write it.
+Everything written down here is one of these, and which one decides who may write it.
 
 | | | |
 |---|---|---|
 | **Rules** | `docs/` | How things must be built. Authored by people. Change when a *decision* changes, never because code changed. |
 | **Maps** | the `AGENTS.md` files | What exists and where it lives. Change every time a feature lands — which is why the agent maintains them. |
+| **Records** | `docs/adr/` | Why a decision was taken. Written once and left alone. **Either may author one**; only a person may promote one to `accepted`. |
 
 **The agent writes maps. It does not write rules.** It reads `docs/` to know what is true and
-never edits a word of it, with exactly one exception: it may add a record under `docs/adr/`, under
-the gate below.
+never edits a word of it, with exactly one exception: records, under the gate below.
 
 That asymmetry is the point. An agent that could edit the rules could rewrite the standard it is
 measured against, and the drift would be invisible because both sides moved together.
@@ -61,7 +61,8 @@ named, that statement does not belong in a map — it is probably a rule, and ru
 
 Everything except the maps and `docs/adr/`. In particular: `docs/` itself, `.claude/`,
 `README.md`, `src/`, `tests/`, and the build files. `.protected-paths.json` is the single source
-of truth for the guard and is never the agent's to edit.
+of truth for the guard and is never the agent's to edit — and `docs/adr/TEMPLATE.md` is the record
+*form*, which the agent fills in and never redesigns.
 
 Fixing a typo is not an exception. If a never-touch file is wrong, say so in the pull request and
 leave it to a human.
@@ -96,37 +97,69 @@ Miss any one of the three and there is no ADR.
 - **dependency version bumps** — including security bumps and transitive pins. The pin and its
   reason belong in `Directory.Packages.props` and `docs/gotchas.md`, not in an ADR.
 
-**Records are for decisions taken on top of this template, not about it.** The template's own
-choices are stated as rules in `docs/` and beside the code each one constrains.
+**Records do not restate the template's existing choices.** Why the dependency rule points inward,
+why there are two testing seams, why `DomainError` is not called `Error` — all of that is already
+stated as a rule in `docs/` and beside the code it constrains, and an ADR re-explaining it is a
+second copy that will drift.
+
+**Changing one of those choices is a different matter, and does qualify.** Widening
+`DomainErrorType`, moving a layer boundary, altering what a `Result` means to the transport layer —
+these are decisions taken *now*, with alternatives that were live *now*, and the rule they change
+records what is true rather than why it was chosen. Read the exclusion above as "do not restate",
+never as "the template's own machinery is out of bounds".
+
+*This paragraph used to say only "records are for decisions taken on top of this template, not
+about it", which read as the second thing while the list above said the first. The documentation
+agent hit exactly that conflict on a change that widened an error contract, had to pick a side, and
+filed nothing. If you find yourself resolving a contradiction here rather than applying a rule,
+that is a bug in this file.*
 
 When the gate is not met but the reasoning is still worth keeping, put it where it will be read: a
 comment at the code it explains, or a gotcha in `docs/gotchas.md` — and since that is a rule file,
 propose it in the pull request rather than writing it.
 
-## Proposed decision records are proposed, and only proposed
+## Decision records are the one document either may write
 
-An ADR the agent writes carries `status: proposed` in its front matter. **Nothing else.**
+Everything else here splits cleanly: the agent owns maps, people own rules. Records are the
+exception, and `.protected-paths.json` lists `docs/adr/**` as `sharedOwned` for that reason. Guard
+it against people and a record can never be promoted; guard it against the agent and it cannot file
+the proposal it was asked for.
 
-Promotion to `accepted` is a human edit, made deliberately, by someone who holds the reasoning.
-This is the whole point: an agent that wrote `status: accepted` would be inventing rationale that
-nobody actually held, and it would be indistinguishable in the record from rationale someone did.
-The proposed state is the agent saying *"this looks like a decision, and here is my reconstruction
-of it"* — which is useful, and is not the same claim.
+**The agent proposes. It never promotes.** An ADR the agent writes carries `status: proposed`, and
+nothing else. An agent writing `status: accepted` would be inventing rationale nobody held, and it
+would be indistinguishable in the record from rationale someone did. A person authoring a record
+may write `accepted` directly — holding the reasoning is precisely what `proposed` exists to mark
+the absence of.
+
+**And it says where the reasoning came from.** `reasoning: authored` when a human stated the
+trade-off — in the record, or in the pull request body for the agent to transcribe.
+`reasoning: reconstructed` when the agent inferred it from the diff because nobody wrote it down.
+
+That second field is not bureaucracy. Every other rule here rests on maps being *re-derivable from
+the code alone* — and the one section that makes an ADR worth reading, `## Considered Options`, is
+the one thing that is not. A diff shows what was chosen and never what was rejected. So the agent
+may reconstruct, and must never let the reconstruction pass as testimony. A `reconstructed` record
+is an invitation to correct it.
 
 Form, matching [`adr/TEMPLATE.md`](adr/TEMPLATE.md), which is human-owned and not the agent's to
 redesign:
 
-- File name `NNNN-kebab-case-title.md`, with `NNNN` the next unused number.
-- Front matter containing `status: proposed`.
+- File name `NNNN-kebab-case-title.md`, with **`NNNN` the number of the pull request that took the
+  decision**, zero-padded. Not the next unused number: two open pull requests compute the same one
+  and collide on merge, and the pull request number says where the discussion is.
+- Front matter containing `status:` and `reasoning:`.
 - A title stating the decision as a sentence, not a topic.
 - The decision and its reasoning in prose.
 - **A `## Considered Options` section naming what was rejected and why.** An ADR with no rejected
-  alternative is evidence there was no trade-off, and therefore that the gate above was not met —
-  if the agent cannot name one, it must not file the record.
+  alternative is evidence there was no trade-off, and therefore that the gate above was not met. A
+  person who cannot name one must not file the record; the agent may file with
+  `reasoning: reconstructed`, and must say in that section that the alternative is its inference.
 - A `## Consequences` section: what this now costs, constrains or obliges.
 
-The agent proposes; it never promotes, never re-numbers, and never edits an existing record to
-agree with a new one.
+The agent may revise **the record it created on the pull request it is currently running on** — to
+upgrade `reconstructed` to `authored` once a human fills the section in, for instance. It never
+touches a record from an earlier pull request, never re-numbers, and never edits an existing record
+to agree with a new one.
 
 ## When regeneration would be wrong
 

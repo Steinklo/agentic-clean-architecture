@@ -81,11 +81,17 @@ env:
   # commit authorship instead -- see .github/scripts/protected-paths-guard.sh.
   PROTECTED_PATHS_BYPASS: "1"
 
-  # The loop guard's marker. It is a git trailer on the agent's own commits, and
-  # finding it on the head commit is how a run recognises its own work and stops
-  # rather than regenerating what it just generated. Changing this string
-  # changes it in both places at once, which is why it is here and not inline.
-  AGENT_TRAILER: "Docs-Agent: regenerated"
+  # The loop guard's marker, and the two trailers that carry it.
+  #
+  # AGENT_TRAILER_PREFIX is what the loop guard matches, and it must stay a PREFIX
+  # rather than one whole trailer. The agent now leaves two kinds of commit -- a
+  # regenerated map and a proposed decision record -- and a commit carrying only the
+  # second would not match a fixed-string test for the first. The agent would then
+  # read its own push as somebody else's, regenerate, push, and loop forever, held
+  # back by nothing but cancel-in-progress. Match the prefix and both are recognised.
+  AGENT_TRAILER_PREFIX: "Docs-Agent:"
+  AGENT_TRAILER_MAPS: "Docs-Agent: regenerated"
+  AGENT_TRAILER_RECORD: "Docs-Agent: proposed-record"
 
 jobs:
   regenerate:
@@ -255,8 +261,14 @@ jobs:
           echo "Head commit author:  ${author}"
           echo "Head commit subject: $(git log -1 --pretty='%s')"
 
+          # Prefix match, anchored to the start of a line, so that BOTH agent trailers
+          # are recognised -- a regenerated map and a proposed record alike. A
+          # fixed-string test for one of them would miss the other and loop; see
+          # AGENT_TRAILER_PREFIX at the top of this file. Anchoring means prose in a
+          # human's commit body that merely mentions the trailer does not match, and
+          # the authorship test below is the second lock either way.
           mine=false
-          if printf '%s' "${message}" | grep -qF "${AGENT_TRAILER}" \
+          if printf '%s\n' "${message}" | grep -qE "^${AGENT_TRAILER_PREFIX}" \
             && printf '%s' "${author}" | grep -qiE '\[bot\]'; then
             mine=true
           fi
@@ -421,12 +433,42 @@ jobs:
                already written in `docs/`. Link there and stop.
             3. Apply the decision-record gate in DOC-RULES.md. It is meant to be
                failed: almost every pull request needs no record at all. If it
-               genuinely passes, add ONE new file under `docs/adr/` with
-               `status: proposed` in its front matter. Never `accepted`, never
-               `TEMPLATE.md`, and never edit a record that already exists.
+               genuinely passes, add ONE new file under `docs/adr/`, following
+               `docs/adr/TEMPLATE.md`, and read the four rules below before you
+               write a word of it.
 
-            You may write exactly two things: the `AGENTS.md` maps, and one new
-            file under `docs/adr/`. Nothing else -- not `docs/` itself, not
+            THE DECISION RECORD, IF THE GATE PASSES.
+
+            a. NAME IT AFTER THIS PULL REQUEST:
+               `docs/adr/${{ github.event.pull_request.number }}-kebab-case-title.md`,
+               zero-padded to four digits. Not "the next unused number" -- two
+               open pull requests both compute the same next number and collide
+               on merge. The pull request number cannot collide, and it tells a
+               reader where the discussion is.
+
+            b. SAY WHERE THE REASONING CAME FROM. Front matter carries
+               `status: proposed` and `reasoning:`, which is `authored` when a
+               human stated the trade-off and `reconstructed` when you inferred
+               it. Read the pull request body first: if it has a decision-record
+               section naming a rejected alternative, TRANSCRIBE IT -- that is a
+               human's reasoning and it is `authored`. Only when nobody wrote one
+               down do you reconstruct, and then you must say so. Never
+               `status: accepted`; promoting is a human's act.
+
+            c. `## Considered Options` IS THE RECORD. A decision with no rejected
+               alternative is not a decision. The code shows what was chosen and
+               never what was dropped, so when you are reconstructing, say plainly
+               in that section that the alternative is your inference and not the
+               author's account. A guess that reads like testimony is worse than
+               no record at all.
+
+            d. YOU MAY REVISE ONLY THE RECORD YOU CREATED ON THIS PULL REQUEST --
+               for instance to upgrade `reconstructed` to `authored` once a human
+               fills the section in. Never touch a record from an earlier pull
+               request, and never `TEMPLATE.md`.
+
+            You may write exactly two things: the `AGENTS.md` maps, and one file
+            under `docs/adr/`. Nothing else -- not `docs/` itself, not
             `.claude/`, not `README.md`, `src/`, `tests/`, build files or
             anything under `.github/`. A step after you checks this and fails the
             run if you wrote anywhere else, so a slip is caught rather than
@@ -455,11 +497,11 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          # Cleared for this step alone, exactly as the verify step below does and
-          # for the same reason: the matcher honours this flag in --check mode, and
-          # the workflow-level "1" makes it exit 0 for every path. This step reads
-          # exit 0 as "a human owns this", so leaving the flag set reported every
-          # file the agent legitimately wrote as a trespass, and refused every push.
+          # Cleared for this step alone, as the verify step below does. It no longer
+          # strictly matters -- this step now asks --classify, which reports ownership
+          # and honours no bypass, because there is no verdict to bypass. Kept cleared
+          # so that a future edit reaching for --check again cannot silently inherit
+          # the workflow-level "1" and pass everything.
           PROTECTED_PATHS_BYPASS: ""
         run: |
           set -euo pipefail
@@ -480,18 +522,27 @@ jobs:
 
           trespass=()
           for file in "${changed[@]}"; do
-            # Exit 1 means the matcher considers it agent-owned, which is what we
-            # want here. Exit 0 means it belongs to a human. Exit 2 means the
-            # matcher could not run, and must not be read as either.
+            # --classify, not --check. This step asks "may the AGENT keep this?", which
+            # is a different question from "may a HUMAN write this?" and stopped having
+            # the same answer when decision records became shared: a record answers yes
+            # to both, and an unguarded file such as src/ answers no to the first and
+            # yes to the second. The old code negated --check's exit status, which
+            # cannot express that, and would have discarded every record the agent was
+            # asked to propose. Exit 2 still means the matcher could not run.
             set +e
-            node scripts/protected-paths.mjs --check "${file}" >/dev/null 2>&1
-            verdict=$?
+            verdict="$(node scripts/protected-paths.mjs --classify "${file}" 2>/dev/null)"
+            status=$?
             set -e
 
+            if [ "${status}" -ne 0 ]; then
+              echo "protected-paths.mjs could not classify ${file} (exit ${status})." >&2
+              exit 1
+            fi
+
             case "${verdict}" in
-              1) ;;
-              0) trespass+=("${file}") ;;
-              *) echo "protected-paths.mjs could not classify ${file} (exit ${verdict})." >&2
+              agent-owned|shared-owned) ;;
+              human-owned|unguarded|outside-repo) trespass+=("${file}") ;;
+              *) echo "protected-paths.mjs returned an unknown verdict '${verdict}' for ${file}." >&2
                  exit 1 ;;
             esac
           done
@@ -578,14 +629,61 @@ jobs:
           echo "Files the agent changed:"
           printf '%s\n' "${files}" | sed 's/^/  /'
 
-          # Three -m flags: subject, body, trailer. The trailer must stay the
-          # last paragraph -- the loop guard above looks for it.
-          git commit \
-            --message "docs: regenerate for #${PR_NUMBER}" \
-            --message "Regenerated from docs/DOC-RULES.md against the code on this branch, so this pull request cannot merge with documentation that contradicts it." \
-            --message "${AGENT_TRAILER}"
+          # Two commits, because the agent now does two different things and only one
+          # of them is a regeneration. A map is re-derived from the code and is worth
+          # nothing on its own; a decision record is newly authored prose that may be
+          # wrong in ways no regeneration can be. Git history should be able to tell
+          # them apart, so each carries its own trailer.
+          #
+          # The split asks the matcher which files are records rather than naming a
+          # path here. That list lives once, in .protected-paths.json, and a second
+          # copy in this file is exactly what scripts/verify-protected-paths.mjs fails
+          # the build over.
+          maps=()
+          records=()
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            if [ "$(node scripts/protected-paths.mjs --classify "${file}")" = "shared-owned" ]; then
+              records+=("${file}")
+            else
+              maps+=("${file}")
+            fi
+          done <<<"${files}"
 
-          echo "committed=true" >>"$GITHUB_OUTPUT"
+          git reset --quiet
+
+          committed=false
+
+          # Three -m flags: subject, body, trailer. The trailer must stay the last
+          # paragraph -- the loop guard above matches it by prefix, so both of these
+          # stop the next run from regenerating this one's work.
+          if [ ${#maps[@]} -gt 0 ]; then
+            git add -- "${maps[@]}"
+            git commit \
+              --message "docs: regenerate for #${PR_NUMBER}" \
+              --message "Regenerated from docs/DOC-RULES.md against the code on this branch, so this pull request cannot merge with documentation that contradicts it." \
+              --message "${AGENT_TRAILER_MAPS}"
+            committed=true
+          fi
+
+          if [ ${#records[@]} -gt 0 ]; then
+            git add -- "${records[@]}"
+            git commit \
+              --message "docs: propose a decision record for #${PR_NUMBER}" \
+              --message "This pull request looked like a decision the code alone does not explain, so the gate in docs/DOC-RULES.md was applied and passed. The record is status: proposed and stays proposed -- promoting it to accepted is a human edit, made by someone who holds the reasoning. Check its front matter: reasoning: reconstructed means the rejected alternative was inferred from the diff rather than stated by the author, and is the first thing worth correcting." \
+              --message "${AGENT_TRAILER_RECORD}"
+            committed=true
+          fi
+
+          # How many commits were made, so the verify step below can scope itself to
+          # exactly them. It used to hardcode HEAD~1, which silently stopped covering
+          # the whole of the agent's work the moment there could be two.
+          made=0
+          [ ${#maps[@]} -gt 0 ] && made=$((made + 1))
+          [ ${#records[@]} -gt 0 ] && made=$((made + 1))
+
+          echo "committed=${committed}" >>"$GITHUB_OUTPUT"
+          echo "commits=${made}" >>"$GITHUB_OUTPUT"
 
           {
             echo '### Documentation regenerated'
@@ -602,31 +700,39 @@ jobs:
       # The agent proving it passes its own rule, before the rule gets the
       # chance to fail the pull request.
       #
-      # Scoped to the commit just made (HEAD~1..HEAD) rather than the whole pull
-      # request: any *other* commit here is a human's, and judging it is
-      # protected-paths.yml's job, not this workflow's. A red mark here must
-      # only ever mean "the agent's own commit is not exempt".
+      # Scoped to exactly the commits just made rather than the whole pull request:
+      # any *other* commit here is a human's, and judging it is protected-paths.yml's
+      # job, not this workflow's. A red mark here must only ever mean "the agent's own
+      # commits are not exempt".
+      #
+      # The range comes from the commit step's own count. It was HEAD~1, which was
+      # right while the agent could only ever make one commit and quietly stopped
+      # covering the record commit once it could make two.
       #
       # PROTECTED_PATHS_BYPASS is cleared for this step alone. The matcher
       # honours it in --check mode, so leaving the workflow-level "1" in place
       # would make this verify nothing at all.
-      - name: Verify the agent's commit satisfies the protected-path guard
+      - name: Verify the agent's commits satisfy the protected-path guard
         if: ${{ steps.commit.outputs.committed == 'true' }}
         env:
           PROTECTED_PATHS_BYPASS: ""
-          BASE_SHA: HEAD~1
+          BASE_SHA: HEAD~${{ steps.commit.outputs.commits }}
           HEAD_SHA: HEAD
+          AGENT_COMMITS: ${{ steps.commit.outputs.commits }}
         run: |
           set -euo pipefail
 
           report="$(bash .github/scripts/protected-paths-guard.sh)"
           printf '%s\n' "${report}"
 
-          # Exit 0 alone is not enough: it is also what "this commit touched no
-          # protected path" looks like. The guard must have skipped the commit
-          # *by authorship*, which is the line it prints per exempt commit.
-          if ! printf '%s' "${report}" | grep -q '^  exempt '; then
-            echo "::error::The guard did not treat the agent's commit as bot-authored. Check the git identity step."
+          # Exit 0 alone is not enough: it is also what "these commits touched no
+          # protected path" looks like. The guard must have skipped them *by
+          # authorship*, which is the line it prints per exempt commit -- and it must
+          # have skipped every one of them, not just the last.
+          exempt="$(printf '%s\n' "${report}" | grep -c '^  exempt ' || true)"
+
+          if [ "${exempt}" -ne "${AGENT_COMMITS}" ]; then
+            echo "::error::The guard treated ${exempt} of the agent's ${AGENT_COMMITS} commit(s) as bot-authored. Check the git identity step."
             exit 1
           fi
 
