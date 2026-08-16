@@ -23,16 +23,27 @@ Neither is a convention anyone has to remember. Both are checks that fail.
 
 ## ⚙️ How it works
 
-### 📘 Rules, and 🗺️ maps
+### 📘 Rules, 🗺️ maps, and 📝 records
 
 |  |  |  |
 |---|---|---|
 | **Rules** | `docs/` | How things must be built. **Yours** — the agent reads them and never writes them. |
 | **Maps** | `AGENTS.md` | What exists and where. **The agent's** — rewritten whenever code changes. |
+| **Records** | `docs/adr/` | Why a decision was taken. **Shared** — either may write one; only you may accept one. |
 
 An agent that could edit the rules could rewrite the standard it's measured against. It can't, and
 that's enforced both ways: CI fails a human commit that edits a map, and the documentation agent
-refuses to push if it wrote outside one.
+refuses to push if it wrote outside what it owns.
+
+> [!TIP]
+> **Records are shared because neither side can write one alone.** You hold the reasoning; the agent
+> is the one reading every pull request and noticing a decision nobody wrote down. So it may propose
+> a record — and its front matter says `reasoning: authored` when it transcribed *your* stated
+> trade-off, or `reasoning: reconstructed` when it inferred one from the diff.
+>
+> That field exists because the section that makes a record worth reading — the alternative you
+> rejected — is the one thing a diff can never show. A labelled guess invites correction. An
+> unlabelled one becomes indistinguishable from your reasoning six months later.
 
 ### 🧪 The rules are tests
 
@@ -59,7 +70,7 @@ and labelled as advice.
 | `architecture` | The rules, plus a check that every rule named in prose still exists. No container, seconds. |
 | `pr-build` | Builds and runs every test suite. |
 | `protected-paths` | Fails when a human-authored commit edits a map. |
-| `docs` | Regenerates the maps from the code — and refuses to push if it wrote anywhere else. |
+| `docs` | Regenerates the maps from the code, proposes a record when a decision needs one — and refuses to push if it wrote anywhere else. |
 | `pr-review` | Reviews the diff against `docs/`, before a human spends attention on it. |
 | `build` | The single build definition the others call. |
 
