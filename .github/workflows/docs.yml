@@ -399,6 +399,13 @@ jobs:
       # trust.
       - name: The agent wrote only what it owns
         if: ${{ steps.loop.outputs.regenerate == 'true' }}
+        env:
+          # Cleared for this step alone, exactly as the verify step below does and
+          # for the same reason: the matcher honours this flag in --check mode, and
+          # the workflow-level "1" makes it exit 0 for every path. This step reads
+          # exit 0 as "a human owns this", so leaving the flag set reported every
+          # file the agent legitimately wrote as a trespass, and refused every push.
+          PROTECTED_PATHS_BYPASS: ""
         run: |
           set -euo pipefail
 
