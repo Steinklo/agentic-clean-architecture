@@ -397,9 +397,11 @@ jobs:
       # Without this, "the agent must not edit docs/" is a sentence in a prompt,
       # and a prompt is the one enforcement mechanism this repository does not
       # trust.
-      - name: The agent wrote only what it owns
+      - name: Discard anything the agent wrote outside its own files
         if: ${{ steps.loop.outputs.regenerate == 'true' }}
         env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           # Cleared for this step alone, exactly as the verify step below does and
           # for the same reason: the matcher honours this flag in --check mode, and
           # the workflow-level "1" makes it exit 0 for every path. This step reads
@@ -442,23 +444,53 @@ jobs:
           done
 
           if [ ${#trespass[@]} -gt 0 ]; then
+            # Discarded rather than refused. Failing the run here punishes the
+            # human for the agent's mistake: their pull request goes red over a
+            # file they did not touch, and the maps that WERE correct never land.
+            # So the overstep is undone and the rest proceeds -- the guarantee is
+            # "nothing outside its own files ever reaches your branch", and that
+            # holds either way. What must not happen is this passing quietly, so
+            # it is reported to the job summary, the log, and the pull request.
+            echo "The agent wrote outside the files it owns. Discarding:" >&2
+
+            for file in "${trespass[@]}"; do
+              echo "  ${file}" >&2
+              if git ls-files --error-unmatch "${file}" >/dev/null 2>&1; then
+                git checkout -- "${file}"
+              else
+                rm -f "${file}"
+              fi
+            done
+
             {
               echo "### Documentation agent wrote outside its own files"
               echo
-              echo 'It may write the `AGENTS.md` maps and one new record under `docs/adr/`. It also wrote:'
+              echo 'It may write the `AGENTS.md` maps and one new record under `docs/adr/`. It also'
+              echo 'wrote the files below, and those writes were **discarded** -- nothing outside its'
+              echo 'own files reaches this branch.'
               echo
               for file in "${trespass[@]}"; do echo "  - \`${file}\`"; done
               echo
-              echo 'Nothing was pushed. `docs/` states the rules and belongs to people; if a rule is'
-              echo 'wrong, a human changes it.'
+              echo 'Anything it wrote inside its own files still lands, so the maps stay current.'
+              echo '`docs/` and `.claude/` state the rules and belong to people; if a rule is wrong,'
+              echo 'a human changes it.'
+              echo
+              echo 'This is worth reading rather than ignoring: the agent was told in its prompt not'
+              echo 'to write these, and did. The instruction is not the control -- this step is.'
             } >>"${GITHUB_STEP_SUMMARY}"
 
-            echo "REFUSING TO PUSH. The agent wrote outside the files it owns:" >&2
-            for file in "${trespass[@]}"; do echo "  ${file}" >&2; done
-            exit 1
+            if [ -n "${PR_NUMBER:-}" ]; then
+              {
+                echo "The documentation agent wrote outside the files it owns, and those writes were discarded:"
+                echo
+                for file in "${trespass[@]}"; do echo "- \`${file}\`"; done
+                echo
+                echo "Nothing outside its own files reached this branch. Any map it corrected still landed."
+              } | gh pr comment "${PR_NUMBER}" --body-file - || true
+            fi
           fi
 
-          echo "OK: every change is a file the agent owns."
+          echo "Every remaining change is a file the agent owns."
 
       # ---------------------------------------------------------------- commit --
       # `git add -A` rather than a list of documentation paths, deliberately:

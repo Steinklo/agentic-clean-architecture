@@ -38,15 +38,21 @@ suite catches it whether or not anyone read this file.
 
 ## The agent workflows
 
-- **A pull request that edits an agent workflow cannot test it.** `claude-code-action` refuses to
-  run when the workflow file on the branch differs from the copy on the default branch — a
-  deliberate control, since otherwise a pull request could rewrite the workflow to exfiltrate the
-  repository's secrets. **It exits with `success`**, so the check goes green having done nothing,
-  in about a second. A real review takes minutes; a 1–2 second "pass" is this.
+- **`claude-code-action` refuses to run when the workflow file on the branch differs from the copy
+  on the default branch** — a deliberate control, since otherwise a pull request could rewrite the
+  workflow to exfiltrate the repository's secrets. **It exits with `success`**, so the check goes
+  green having done nothing, in about a second. A real run takes minutes; a 1–2 second "pass" is
+  this.
 
-  So a change to `.github/workflows/docs.yml` or `pr-review.yml` has to merge to the default
-  branch first, and is exercised by the *next* pull request. Plan the change and its test as two
-  pull requests, not one.
+  **But only when the action authenticates itself.** Given no `github_token`, it exchanges an OIDC
+  token with the vendor's App, and the validation happens during that exchange. Hand it a token you
+  minted — as `docs.yml` does, from the App — and the exchange never occurs, so the check never
+  runs and the workflow works on the pull request that edits it.
+
+  So today `docs.yml` can be changed and tested in one pull request, and `pr-review.yml` cannot:
+  it must merge first and be exercised by the next one. That asymmetry is a consequence of how each
+  authenticates, not a rule anyone chose, and it moves if either workflow changes how it
+  authenticates.
 
 - **The agent needs one App installed and one App created.** They are unrelated and neither
   substitutes for the other; see [`setup.md`](setup.md). Missing the installed one fails with
