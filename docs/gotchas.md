@@ -36,6 +36,27 @@ suite catches it whether or not anyone read this file.
 - **Every notification type needs a handler**, or the generator emits `MSG0005`, which is an error
   here because warnings are errors. Raise a domain event and you must handle it.
 
+## The agent workflows
+
+- **A pull request that edits an agent workflow cannot test it.** `claude-code-action` refuses to
+  run when the workflow file on the branch differs from the copy on the default branch — a
+  deliberate control, since otherwise a pull request could rewrite the workflow to exfiltrate the
+  repository's secrets. **It exits with `success`**, so the check goes green having done nothing,
+  in about a second. A real review takes minutes; a 1–2 second "pass" is this.
+
+  So a change to `.github/workflows/docs.yml` or `pr-review.yml` has to merge to the default
+  branch first, and is exercised by the *next* pull request. Plan the change and its test as two
+  pull requests, not one.
+
+- **The agent needs one App installed and one App created.** They are unrelated and neither
+  substitutes for the other; see [`setup.md`](setup.md). Missing the installed one fails with
+  *"…is not installed on this repository"* before any work happens.
+
+- **`--max-turns` is a budget the prompt's reading list spends.** The review agent reads the rules
+  before it reads the diff, and rules live across several files. Reaching the cap ends the run
+  with `error_max_turns`, having posted nothing — the whole cost, none of the value. If the
+  reading list grows, the budget has to grow with it, or the prompt has to read lazily.
+
 ## Build and tooling
 
 - **`IDE0005` (unused usings) does nothing on build unless `GenerateDocumentationFile` is `true`** —
