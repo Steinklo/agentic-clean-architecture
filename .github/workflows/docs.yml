@@ -515,6 +515,16 @@ jobs:
             run if you wrote anywhere else, so a slip is caught rather than
             pushed. Do not run git; the workflow commits what you leave behind.
 
+            IF ONE OF THOSE FILES IS WRONG, SAY SO INSTEAD OF FIXING IT. This is
+            the rule you are most likely to break, because a stale skill or rule
+            is genuinely worth correcting and you are right there. Editing it
+            gets the edit discarded and tells nobody what you noticed -- the
+            discard step reports only the path. So when a file you may not write
+            is stale or contradicts the code, END YOUR FINAL MESSAGE with a
+            section headed `Files a human should fix`, naming each one and the
+            change you would have made. That is the channel, and it is worth more
+            than the edit would have been.
+
             If the documentation already matches the code, change nothing. That
             is a good outcome, not a failure -- there is no value in a commit
             that only reflows prose.
@@ -726,13 +736,37 @@ jobs:
           echo "committed=${committed}" >>"$GITHUB_OUTPUT"
           echo "commits=${made}" >>"$GITHUB_OUTPUT"
 
+          # The summary says which of the two things happened, because they want
+          # reading differently. A regenerated map is derived and its errors are
+          # errors in the code or in DOC-RULES; a proposed record is new prose whose
+          # reasoning may simply be wrong. Reporting both as "documentation
+          # regenerated" invites a reader to skim the one thing worth reading.
           {
-            echo '### Documentation regenerated'
+            if [ ${#maps[@]} -gt 0 ] && [ ${#records[@]} -gt 0 ]; then
+              echo '### Maps regenerated, and a decision record proposed'
+            elif [ ${#records[@]} -gt 0 ]; then
+              echo '### Decision record proposed'
+            else
+              echo '### Documentation regenerated'
+            fi
+
             echo
-            echo 'The agent pushed a commit to this branch. Review it with the code -- it is'
-            echo 'derived from `docs/rules/DOC-RULES.md`, and if it says something wrong, the fix'
-            echo 'is to that file or to the code, not to the generated document.'
-            echo
+
+            if [ ${#maps[@]} -gt 0 ]; then
+              echo 'The maps are derived from `docs/rules/DOC-RULES.md` and the code. If one says'
+              echo 'something wrong, the fix is to that file or to the code, not to the map.'
+              echo
+            fi
+
+            if [ ${#records[@]} -gt 0 ]; then
+              echo '**The record is newly written prose, not a regeneration.** It is'
+              echo '`status: proposed` and stays proposed until a human promotes it. Check its'
+              echo '`reasoning:` field -- `reconstructed` means the rejected alternative is the'
+              echo "agent's inference rather than the author's account, and is the first thing"
+              echo 'worth correcting.'
+              echo
+            fi
+
             echo '| File |'
             echo '| --- |'
             printf '%s\n' "${files}" | sed 's/^/| `/; s/$/` |/'

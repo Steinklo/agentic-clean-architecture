@@ -103,13 +103,18 @@ variable belongs to the documentation agent's own workflow.
 
 **Squash-merge is forbidden here**, and this is not a style preference.
 
-The documentation agent pushes `[bot]`-authored commits onto your branch carrying `AGENTS.md` maps.
-`.github/scripts/protected-paths-guard.sh` exempts them **by author identity**. Squashing collapses
-them into one commit authored by *you* — so you become the author of agent-owned files, and
-`protected-paths` fails the pull request.
+The documentation agent pushes `[bot]`-authored commits onto your branch — `AGENTS.md` maps, and
+decision records under `docs/adr/`. `.github/scripts/protected-paths-guard.sh` exempts them **by
+author identity**. Squashing collapses them into one commit authored by *you*, so you become the
+author of agent-owned files and `protected-paths` fails the pull request.
 
 So: **merge or rebase-merge**, never squash. One commit that is both yours and carries the agent's
 files cannot exist.
+
+**A record commit alone would survive a squash, and that is a coincidence rather than a licence.**
+`docs/adr/**` is shared, so you authoring one is legal — a pull request whose only bot commit is a
+proposed record would squash green. The moment it also carries a map, which is the ordinary case,
+it fails. Do not learn the exception.
 
 ## 3. The documentation agent's commits on your branch
 
