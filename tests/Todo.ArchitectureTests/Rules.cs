@@ -181,12 +181,14 @@ internal static class Rules
         new("Every IRequest has an AbstractValidator", RuleCoverage.Live, MeaningfulAt: 3);
 
     /// <summary>
-    /// Live over 3 aggregate roots' worth of entities. <c>UnitOfWork</c> enumerates
+    /// Live: promoted by the Manifestations slice, which gave the solution its second aggregate
+    /// root. Two roots keyed independently is the point at which this stops describing the one
+    /// example that existed. <c>UnitOfWork</c> enumerates
     /// <c>ChangeTracker.Entries&lt;AggregateRoot&lt;Guid&gt;&gt;()</c>, so a root keyed on
     /// anything else compiles, saves, and never dispatches a domain event.
     /// </summary>
     public static ArchitectureRule AggregateRootsAreKeyedOnGuid { get; } =
-        new("Every aggregate root derives from AggregateRoot<Guid>", RuleCoverage.Thin, MeaningfulAt: 2);
+        new("Every aggregate root derives from AggregateRoot<Guid>", RuleCoverage.Live, MeaningfulAt: 2);
 
     // ---------------------------------------------------------------------------------------
     // The shape of a vertical slice. These were the new-feature skill's rules and nothing
@@ -222,12 +224,18 @@ internal static class Rules
         new("Every endpoint derives from its feature's endpoint base", RuleCoverage.Live, MeaningfulAt: 3);
 
     /// <summary>
-    /// Thin: one repository exists. This is the one wiring step nothing discovers — handlers,
-    /// validators, configurations and endpoints are all found by scanning, so a missing
-    /// <c>AddScoped</c> builds green and throws at the first request instead.
+    /// Live: promoted by the Manifestations slice, whose <c>IManifestationRepository</c> is the
+    /// second contract this has to find a registration for. This is the one wiring step nothing
+    /// discovers — handlers, validators, configurations and endpoints are all found by scanning, so
+    /// a missing <c>AddScoped</c> builds green and throws at the first request instead.
+    /// <para>
+    /// It sees repositories only, by name. <c>IRealityGateway</c> is a port registered on the same
+    /// line of the same file and is invisible here, so a port that is not a repository still has
+    /// nothing checking it was wired up.
+    /// </para>
     /// </summary>
     public static ArchitectureRule RepositoriesAreRegistered { get; } =
-        new("Every repository interface is registered in Infrastructure", RuleCoverage.Thin, MeaningfulAt: 2);
+        new("Every repository interface is registered in Infrastructure", RuleCoverage.Live, MeaningfulAt: 2);
 
     // ---------------------------------------------------------------------------------------
     // The mapping. Every one of these is a gotcha AGENTS.md records because it already cost
@@ -244,12 +252,13 @@ internal static class Rules
         new("Every mapped entity key is ValueGeneratedNever", RuleCoverage.Live, MeaningfulAt: 2);
 
     /// <summary>
-    /// Thin: one aggregate root is mapped. Without <c>Ignore(x =&gt; x.DomainEvents)</c> EF's
-    /// relationship convention maps the collection as a navigation, inventing a DomainEvents
-    /// table with a foreign key — visible only when someone reads the next migration.
+    /// Live: promoted by the Manifestations slice, which mapped the second aggregate root. Without
+    /// <c>Ignore(x =&gt; x.DomainEvents)</c> EF's relationship convention maps the collection as a
+    /// navigation, inventing a DomainEvents table with a foreign key — visible only when someone
+    /// reads the next migration.
     /// </summary>
     public static ArchitectureRule DomainEventsAreNeverMapped { get; } =
-        new("No aggregate root maps its DomainEvents collection", RuleCoverage.Thin, MeaningfulAt: 2);
+        new("No aggregate root maps its DomainEvents collection", RuleCoverage.Live, MeaningfulAt: 2);
 
     /// <summary>
     /// Live over 2 value-object properties. A value object needs a converter <em>and</em> an

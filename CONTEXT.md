@@ -19,3 +19,7 @@ _Avoid_: Done, Finish, Check off, Close
 **Archive**:
 To retire a TodoList from active use. A TodoList cannot be archived while any of its TodoItems is incomplete — this is the invariant that justifies the aggregate boundary.
 _Avoid_: Delete, Close, Remove, Deactivate
+
+**Manifest**:
+To make a TodoItem true in the physical world.
+_Avoid_: Create, Do, Execute, Perform, Realize
