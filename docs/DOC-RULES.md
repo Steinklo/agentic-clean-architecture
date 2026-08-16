@@ -30,8 +30,11 @@ Exactly these, and no others. The agent must not invent a new `AGENTS.md` anywhe
 | Map | What it is | Derived from |
 | --- | --- | --- |
 | `AGENTS.md` | The root map: which features exist, where each one's parts live, the entry points, and the shared building blocks. | The feature folders across `src/`, the `ConfigureServices` files, `Program.cs`, and `tests/Todo.ArchitectureTests/Rules.cs` for the pointer to the rule inventory. |
-| `src/<project>/AGENTS.md` | One map per project: what that layer holds right now — the types, folders and routes actually present. | That project's own source tree. Nothing else. |
+| `<directory>/AGENTS.md` | One map per directory that has one — today that is each project under `src/`. What that directory holds right now: the types, folders and routes actually present. | That directory's own source tree. Nothing else. |
 | `CLAUDE.md` | A pointer to `AGENTS.md`. It has no content of its own. | — |
+
+Any `AGENTS.md` anywhere in the repository is a map and is yours to maintain — the guard treats
+them all the same, so a map you do not maintain would belong to nobody.
 
 **Every map is re-derivable from the code alone.** A regeneration run should reconstruct it
 without reading the previous version. If the agent cannot derive a statement from the source
