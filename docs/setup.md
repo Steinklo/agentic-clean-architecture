@@ -1,7 +1,7 @@
 # Setting up the agent workflows
 
 Four of the six workflows need nothing: `architecture`, `pr-build`, `protected-paths` and `build`
-run on a fresh clone, on forks, for anyone. Everything in [`architecture.md`](architecture.md) is
+run on a fresh clone, on forks, for anyone. Everything in [`architecture.md`](rules/architecture.md) is
 enforced without any of what follows.
 
 Two need credentials, because they run an AI agent: **`docs`** regenerates the maps, and

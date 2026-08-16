@@ -75,7 +75,7 @@ Copy `src/Todo.Domain/TodoLists/ValueObjects/TodoListTitle.cs`.
 
 1. `.HasConversion(vo => vo.Value, value => <Name>.Create(value).Value)` — reading goes back through the domain factory, so a row that violates the domain fails loudly instead of becoming an invalid aggregate.
 2. `.HasColumnName(...)`, `.HasMaxLength(<Name>.MaxLength)`, `.IsRequired()`. Value objects are **required, never optional** — EF 10's nullable complex-type support has open defects.
-3. `property.Metadata.SetValueComparer(new ValueComparer<<Name>>((l, r) => l == r, vo => vo.GetHashCode(), vo => vo))`. **Not optional** — see the gotcha in `docs/gotchas.md`. `TodoListConfiguration.ConfigureTitle` is the worked example, and so is the reason not to reach for `ComplexProperty`.
+3. `property.Metadata.SetValueComparer(new ValueComparer<<Name>>((l, r) => l == r, vo => vo.GetHashCode(), vo => vo))`. **Not optional** — see the gotcha in `docs/rules/gotchas.md`. `TodoListConfiguration.ConfigureTitle` is the worked example, and so is the reason not to reach for `ComplexProperty`.
 
 A new value object adds a column, so it needs a migration.
 
@@ -173,7 +173,7 @@ Every endpoint derives from that base (`Rules.EndpointsDeriveFromTheirFeatureBas
 
 ## 11. Tests
 
-Two seams, as `docs/architecture.md` sets out, and **no handler tests with mocked repositories**.
+Two seams, as `docs/rules/architecture.md` sets out, and **no handler tests with mocked repositories**.
 
 **HTTP seam** — `tests/Todo.IntegrationTests/<Feature>/`, one file per feature: `public sealed class <Thing>EndpointTests(TodoApiFixture fixture) : IntegrationTestBase(fixture)`. The base class supplies `Client` and resets the database before each test; nothing needs registering, because `IntegrationTestBase` already carries the collection attribute. Cover at minimum:
 
@@ -206,7 +206,7 @@ Match the local conventions: request URIs are `Uri` objects from a private `stat
 
 ## 12. Build and run the suite
 
-`dotnet build` then all three suites — the commands are in `docs/conventions.md`. 0 warnings, or you are not done.
+`dotnet build` then all three suites — the commands are in `docs/rules/conventions.md`. 0 warnings, or you are not done.
 
 ## 13. What a feature does not touch
 

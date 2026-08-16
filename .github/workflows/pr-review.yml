@@ -260,10 +260,10 @@ jobs:
             before you review anything. Start from `gh pr diff`, and open a rules
             file only when a changed line makes you want to check it:
 
-            - `docs/conventions.md` -- naming and code shape.
-            - `docs/gotchas.md` -- the traps, mostly EF Core and Mediator.
-            - `docs/architecture.md` -- layering, the coverage model, the seams.
-            - `docs/layers/<project>.md` -- only for a layer the diff touches.
+            - `docs/rules/conventions.md` -- naming and code shape.
+            - `docs/rules/gotchas.md` -- the traps, mostly EF Core and Mediator.
+            - `docs/rules/architecture.md` -- layering, the coverage model, the seams.
+            - `docs/rules/layers/<project>.md` -- only for a layer the diff touches.
 
             These are human-authored and never regenerated, so they are the
             standard. The `AGENTS.md` files are maps of what currently exists,

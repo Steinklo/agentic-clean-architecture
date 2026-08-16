@@ -27,7 +27,7 @@ Neither is a convention anyone has to remember. Both are checks that fail.
 
 |  |  |  |
 |---|---|---|
-| **Rules** | `docs/` | How things must be built. **Yours** — the agent reads them and never writes them. |
+| **Rules** | `docs/rules/` | How things must be built. **Yours** — the agent reads them and never writes them. |
 | **Maps** | `AGENTS.md` | What exists and where. **The agent's** — rewritten whenever code changes. |
 | **Records** | `docs/adr/` | Why a decision was taken. **Shared** — either may write one; only you may accept one. |
 

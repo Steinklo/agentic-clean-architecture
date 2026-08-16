@@ -30,7 +30,7 @@
      The bar is all three at once: hard to reverse, surprising without context, and a
      real trade-off a reasonable person would have decided the other way. Never for a
      bug fix, a behaviour-preserving refactor, a test-only change or a version bump.
-     See docs/DOC-RULES.md.
+     See docs/rules/DOC-RULES.md.
 
      Decision:
      Rejected alternative, and why: -->

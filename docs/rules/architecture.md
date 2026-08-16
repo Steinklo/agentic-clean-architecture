@@ -9,7 +9,7 @@ solution currently contains is in the `AGENTS.md` map files, which are regenerat
 
 Every layering rule is a test. Prose explains *why*; the test decides.
 **`tests/Todo.ArchitectureTests/Rules.cs` is the inventory** — read it to learn what the suite
-guarantees today, rather than trusting a list in prose. Each `docs/layers/<project>.md` names the
+guarantees today, rather than trusting a list in prose. Each `docs/rules/layers/<project>.md` names the
 rules that bite in that layer.
 
 **Every rule declares how much it is proving — `Live`, `Thin` or `Dormant` — plus the population
@@ -84,7 +84,7 @@ Three kinds of document, and the distinction decides who may write each one.
 - **`docs/adr/` is the records.** Why a decision was taken. **Shared**: either a person or the
   agent may author one, and only a person may promote one to `accepted`. Guarding records against
   people would make them unpromotable; guarding them against the agent would discard the proposal
-  it is asked for. `docs/DOC-RULES.md` owns the gate and the form.
+  it is asked for. `docs/rules/DOC-RULES.md` owns the gate and the form.
 
 The path list lives in exactly one file, `.protected-paths.json`; never write a second copy of
 those patterns anywhere. It carries three lists, and the two consumers ask **different questions**

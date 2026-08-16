@@ -95,7 +95,7 @@ Miss any one of the three and there is no ADR.
 - **refactors with no behaviour change** — including renames, file moves and extractions;
 - **test-only changes** — new tests, fixtures or harness work;
 - **dependency version bumps** — including security bumps and transitive pins. The pin and its
-  reason belong in `Directory.Packages.props` and `docs/gotchas.md`, not in an ADR.
+  reason belong in `Directory.Packages.props` and `docs/rules/gotchas.md`, not in an ADR.
 
 **Records do not restate the template's existing choices.** Why the dependency rule points inward,
 why there are two testing seams, why `DomainError` is not called `Error` — all of that is already
@@ -115,7 +115,7 @@ filed nothing. If you find yourself resolving a contradiction here rather than a
 that is a bug in this file.*
 
 When the gate is not met but the reasoning is still worth keeping, put it where it will be read: a
-comment at the code it explains, or a gotcha in `docs/gotchas.md` — and since that is a rule file,
+comment at the code it explains, or a gotcha in `docs/rules/gotchas.md` — and since that is a rule file,
 propose it in the pull request rather than writing it.
 
 ## Decision records are the one document either may write
@@ -141,7 +141,7 @@ the one thing that is not. A diff shows what was chosen and never what was rejec
 may reconstruct, and must never let the reconstruction pass as testimony. A `reconstructed` record
 is an invitation to correct it.
 
-Form, matching [`adr/TEMPLATE.md`](adr/TEMPLATE.md), which is human-owned and not the agent's to
+Form, matching [`../adr/TEMPLATE.md`](../adr/TEMPLATE.md), which is human-owned and not the agent's to
 redesign:
 
 - File name `NNNN-kebab-case-title.md`, with **`NNNN` the number of the pull request that took the

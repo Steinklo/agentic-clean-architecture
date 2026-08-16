@@ -158,11 +158,11 @@ const cases = [
   ["docs/adr/nested/note.md", false, "docs/adr/** spans segments, and is shared"],
 
   // Rules: people's to write, so the agent must not touch them.
-  ["docs/architecture.md", false, "a rule, not a map"],
-  ["docs/conventions.md", false, "a rule, not a map"],
-  ["docs/gotchas.md", false, "a rule, not a map"],
-  ["docs/layers/Todo.Domain.md", false, "a layer's rules, not its map"],
-  ["docs/DOC-RULES.md", false, "the form the agent writes maps in"],
+  ["docs/rules/architecture.md", false, "a rule, not a map"],
+  ["docs/rules/conventions.md", false, "a rule, not a map"],
+  ["docs/rules/gotchas.md", false, "a rule, not a map"],
+  ["docs/rules/layers/Todo.Domain.md", false, "a layer's rules, not its map"],
+  ["docs/rules/DOC-RULES.md", false, "the form the agent writes maps in"],
   ["docs/adr/TEMPLATE.md", false, "the record form; the agent fills it in, never redesigns it"],
   [".claude/settings.json", false, "the hooks that constrain the agent"],
   [".claude/skills/new-feature/SKILL.md", false, "a procedure people author"],
@@ -194,7 +194,7 @@ const agentWriteCases = [
   ["src/Todo.Domain/AGENTS.md", true, "a layer map"],
   ["docs/adr/0007-some-decision.md", true, "shared: the agent may propose a record"],
   ["docs/adr/TEMPLATE.md", false, "the record form is the humans', not the agent's"],
-  ["docs/architecture.md", false, "a rule"],
+  ["docs/rules/architecture.md", false, "a rule"],
   [".claude/skills/new-feature/SKILL.md", false, "a procedure people author"],
   ["src/Todo.Domain/TodoList.cs", false, "code: unguarded, and still not the agent's"],
   ["README.md", false, "unguarded, and still not the agent's"],
@@ -244,7 +244,7 @@ try {
   const viaDefault = loadRules();
   defaultRootWorks =
     classify("AGENTS.md", viaDefault).protected === true &&
-    classify("docs/architecture.md", viaDefault).protected === false;
+    classify("docs/rules/architecture.md", viaDefault).protected === false;
   if (!defaultRootWorks) defaultRootDetail = "the rules file was found, but classification through the default root disagrees";
 } catch (err) {
   defaultRootDetail = `${err.message}\n    REPO_ROOT in ${MATCHER} does not point at this repository`;

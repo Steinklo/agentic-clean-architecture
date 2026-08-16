@@ -3,7 +3,7 @@
 # .github/workflows/protected-paths.yml is the half that says "you may not hand
 # edit these files". This is the half that says "you do not have to": on every
 # pull request commit, Claude regenerates the documents listed in
-# docs/DOC-RULES.md from the code as it stands and pushes the correction onto
+# docs/rules/DOC-RULES.md from the code as it stands and pushes the correction onto
 # the same branch. Code and its documentation are therefore reviewed together,
 # and a pull request cannot merge with documentation that contradicts it.
 #
@@ -328,7 +328,7 @@ jobs:
           fi
 
       # --------------------------------------------------------------- claude --
-      # The agent reads docs/DOC-RULES.md and edits files. It does not touch git:
+      # The agent reads docs/rules/DOC-RULES.md and edits files. It does not touch git:
       # committing, verifying and pushing are done below, in shell, so that the
       # commit message carries the loop-guard trailer, the identity is the one
       # asserted above, and the guard is run over the result before anything is
@@ -435,7 +435,7 @@ jobs:
             You are the documentation agent for this repository, running on pull
             request #${{ github.event.pull_request.number }}.
 
-            Read `docs/DOC-RULES.md` first. It is human-owned and it is the
+            Read `docs/rules/DOC-RULES.md` first. It is human-owned and it is the
             contract: it names every map you maintain, what each is derived
             from, the form you must write in, what you must never touch, and
             when you may propose a decision record. Follow it exactly. Where
@@ -702,7 +702,7 @@ jobs:
             git add -- "${maps[@]}"
             git commit \
               --message "docs: regenerate for #${PR_NUMBER}" \
-              --message "Regenerated from docs/DOC-RULES.md against the code on this branch, so this pull request cannot merge with documentation that contradicts it." \
+              --message "Regenerated from docs/rules/DOC-RULES.md against the code on this branch, so this pull request cannot merge with documentation that contradicts it." \
               --message "${AGENT_TRAILER_MAPS}"
             committed=true
           fi
@@ -711,7 +711,7 @@ jobs:
             git add -- "${records[@]}"
             git commit \
               --message "docs: propose a decision record for #${PR_NUMBER}" \
-              --message "This pull request looked like a decision the code alone does not explain, so the gate in docs/DOC-RULES.md was applied and passed. The record is status: proposed and stays proposed -- promoting it to accepted is a human edit, made by someone who holds the reasoning. Check its front matter: reasoning: reconstructed means the rejected alternative was inferred from the diff rather than stated by the author, and is the first thing worth correcting." \
+              --message "This pull request looked like a decision the code alone does not explain, so the gate in docs/rules/DOC-RULES.md was applied and passed. The record is status: proposed and stays proposed -- promoting it to accepted is a human edit, made by someone who holds the reasoning. Check its front matter: reasoning: reconstructed means the rejected alternative was inferred from the diff rather than stated by the author, and is the first thing worth correcting." \
               --message "${AGENT_TRAILER_RECORD}"
             committed=true
           fi
@@ -730,7 +730,7 @@ jobs:
             echo '### Documentation regenerated'
             echo
             echo 'The agent pushed a commit to this branch. Review it with the code -- it is'
-            echo 'derived from `docs/DOC-RULES.md`, and if it says something wrong, the fix'
+            echo 'derived from `docs/rules/DOC-RULES.md`, and if it says something wrong, the fix'
             echo 'is to that file or to the code, not to the generated document.'
             echo
             echo '| File |'
