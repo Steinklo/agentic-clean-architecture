@@ -336,7 +336,15 @@ jobs:
           github_token: ${{ steps.app-token.outputs.token }}
           # No Bash: everything the agent needs is reading and writing files, and
           # withholding the shell is what keeps "the workflow owns git" true.
-          claude_args: '--allowedTools "Read,Glob,Grep,Edit,Write" --max-turns 40'
+          #
+          # 80 turns, not 40. Without a shell the agent cannot diff anything, so it
+          # establishes what changed by reading the tree, and that cost scales with
+          # the size of the pull request rather than the size of the map it writes.
+          # On PR #7 - a whole new feature, 18 files over four layers - it finished
+          # and reported success at 60 turns, and the run was failed afterwards for
+          # exceeding 40: the ceiling discarded completed work rather than stopping
+          # a confused run. pr-review already sits at 60 and is the smaller job.
+          claude_args: '--allowedTools "Read,Glob,Grep,Edit,Write" --max-turns 80'
           prompt: |
             You are the documentation agent for this repository, running on pull
             request #${{ github.event.pull_request.number }}.
