@@ -153,8 +153,12 @@ jobs:
           any credential, and they are the checks that decide whether this pull request is sound.
 
           \`docs/setup.md\` covers wiring it up, including why the built-in \`GITHUB_TOKEN\`
-          cannot be used for the push. Until then the maps under \`AGENTS.md\` are maintained by
-          hand, and this check reports success rather than red."
+          cannot be used for the push.
+
+          Until then the maps under \`AGENTS.md\` will not change at all: this check cannot write
+          them, and \`protected-paths\` blocks hand edits, so they belong to nobody. If you do not
+          intend to configure an agent, remove the map patterns from \`.protected-paths.json\` and
+          they become yours to maintain. This check reports success rather than red either way."
             fi
 
             echo "ready=true" >>"$GITHUB_OUTPUT"
