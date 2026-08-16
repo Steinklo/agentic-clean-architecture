@@ -17,6 +17,17 @@ What this layer contains today. **The rules are in
 The invariant the aggregate boundary exists for: `TodoList.Archive()` refuses while any
 `TodoItem` is incomplete.
 
+**Manifestations** (`Manifestations/`)
+
+| | |
+|---|---|
+| Aggregate root | `Manifestation` — requests, then settles once via `Realize()` or `Fail()` |
+| State | `ManifestationState` — `Requested`, and the terminal `Realized` / `Failed` |
+| Events | `Events/ManifestationRequestedEvent`, `ManifestationRealizedEvent`, `ManifestationFailedEvent` |
+
+The invariant the aggregate exists for: a settled `Manifestation` refuses a second transition.
+`Manifestation` refers to its `TodoItem` and `TodoListId` by id only, never by navigation.
+
 ## Common
 
 `Common/` — `Result` and `Result<T>`, `DomainError`, `DomainErrorType`, and the `Entity<TId>`,
@@ -24,5 +35,5 @@ The invariant the aggregate boundary exists for: `TodoList.Archive()` refuses wh
 
 ## Tests
 
-`tests/Todo.UnitTests/TodoLists/TodoListTests.cs`, plus
-`tests/Todo.UnitTests/Common/ErrorCodeUniquenessTests.cs`, which scans this project's source.
+`tests/Todo.UnitTests/TodoLists/TodoListTests.cs`, `tests/Todo.UnitTests/Manifestations/ManifestationTests.cs`,
+plus `tests/Todo.UnitTests/Common/ErrorCodeUniquenessTests.cs`, which scans this project's source.

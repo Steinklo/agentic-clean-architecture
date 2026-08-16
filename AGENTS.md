@@ -21,8 +21,8 @@ Each layer under `src/` carries its own map. Read the one for the layer you are 
 
 ## Features
 
-**TodoLists** — the only feature. A `TodoList` owns `TodoItem`s and refuses to be archived while
-any of them is incomplete.
+**TodoLists** — a `TodoList` owns `TodoItem`s and refuses to be archived while any of them is
+incomplete.
 
 | | |
 |---|---|
@@ -32,13 +32,26 @@ any of them is incomplete.
 | HTTP | `src/Todo.Api/Endpoints/TodoLists/` — one endpoint per use case, under `/api/todo-lists` |
 | Tests | `tests/Todo.IntegrationTests/TodoLists/` and `tests/Todo.UnitTests/TodoLists/` |
 
+**Manifestations** — a `Manifestation` records a request to make a `TodoItem` true in the physical
+world, and settles as `Realized` or `Failed`.
+
+| | |
+|---|---|
+| Aggregate | `src/Todo.Domain/Manifestations/` — `Manifestation`, events for requested / realized / failed |
+| Use cases | `src/Todo.Application/Manifestations/` — commands `RequestManifestation`, `FulfilManifestation`; query `GetManifestation` |
+| Ports | `src/Todo.Application/Manifestations/` — `IManifestationRepository`, `IRealityGateway` |
+| Persistence | `src/Todo.Infrastructure/Persistence/` — `ManifestationConfiguration`, `ManifestationRepository` |
+| Adapter | `src/Todo.Infrastructure/Reality/RealityGateway.cs` — the only implementation of `IRealityGateway`; it declines |
+| HTTP | `src/Todo.Api/Endpoints/Manifestations/` — `RequestManifestationEndpoint` under `/api/todo-lists`, `GetManifestationEndpoint` and `FulfilManifestationEndpoint` under `/api/manifestations` |
+| Tests | `tests/Todo.IntegrationTests/Manifestations/` and `tests/Todo.UnitTests/Manifestations/` |
+
 ## Entry points
 
 | | |
 |---|---|
 | `src/Todo.Api/Program.cs` | composition root; calls each layer's `Add<Layer>Services(...)` |
 | `src/Todo.Application/ConfigureServices.cs` | Mediator, its behaviour list, and validator scanning |
-| `src/Todo.Infrastructure/ConfigureServices.cs` | the `DbContext`, repositories and unit of work |
+| `src/Todo.Infrastructure/ConfigureServices.cs` | the `DbContext`, repositories, the unit of work, and the reality gateway port |
 | `src/Todo.Api/Common/ResultExtensions.cs` | the single `Result` → `IResult` translation |
 | `tests/Todo.ArchitectureTests/Rules.cs` | every enforced rule, and how much each currently proves |
 
