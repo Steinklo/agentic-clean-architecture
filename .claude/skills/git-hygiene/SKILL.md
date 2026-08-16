@@ -140,4 +140,4 @@ next run regenerates it.
 | `docs / regenerate` red at the push step | You pushed while the agent was working; its non-fast-forward push failed | Nothing. Your push already started the next run |
 | `docs / regenerate` says "already regenerated" | The head commit is the agent's | Expected. Push a commit of your own to trigger the next run |
 | No `docs` commit appears at all | The pull request is from a fork, or no agent credential is configured | Expected. The job summary says which |
-| An agent workflow passes in about a second | It refused to run because the branch's copy of the workflow differs from `main` | Expected on a pull request that edits a workflow. See `docs/gotchas.md` |
+| An agent workflow passes in about a second | It refused to run: the branch's copy of the workflow differs from `main`, and that workflow lets the action authenticate itself | Expected for `pr-review` on a pull request that edits it. `docs` is unaffected — see `docs/gotchas.md` |
