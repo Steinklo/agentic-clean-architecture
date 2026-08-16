@@ -91,10 +91,16 @@ Copy `src/Todo.Domain/TodoLists/Entities/TodoItem.cs`.
 
 ## 5. A new domain event and its handler
 
-**One event per state transition the aggregate actually has — and none that is not one.** Creation
-counts: §2 requires `Create` to raise `<Aggregate>CreatedEvent`. So an aggregate with two
-transitions on top of creation has exactly three events, which is the shape `TodoList` has —
-created / item-completed / archived.
+**An event marks a transition the aggregate wants on its record — and nothing that is not one.**
+Creation always counts: §2 requires `Create` to raise `<Aggregate>CreatedEvent`. After that it is a
+judgement, and `TodoList` is the worked example of it going both ways: **four mutators, three
+events**. `CompleteItem` and `Archive` raise, because each settles something the list will be asked
+about later. `AddItem` does not — filling a list in is the list being written, not something that
+happened to it.
+
+So not every mutator is a transition. Take the decision once, when you write the mutator, and say so
+in its doc comment when the answer is no; an aggregate where the absence of an event looks like an
+oversight is one where the next person adds it back.
 
 **A handler that only logs is not waste, and is not a placeholder.** It is the audit trail and the
 seam §11's dispatch test asserts on. Mediator has no concept of an optional handler — `error

@@ -16,8 +16,19 @@ namespace Todo.Api.Common;
 /// This exists because of a specific, real defect. In the repository this template is modelled on,
 /// the ladder from error category to status code was copy-pasted into every endpoint. Endpoints
 /// drifted: some mapped a conflict to 400, some forgot 409 entirely, and a new error category
-/// meant editing every endpoint and missing one. Adding a category here is a compile error in one
-/// switch, which is exactly where you want to be told.
+/// meant editing every endpoint and missing one. Adding a category is now one edit, in one switch,
+/// instead of an edit to every endpoint and one of them missed.
+/// </para>
+/// <para>
+/// <b>What this does not do, tested rather than assumed.</b> Adding a <see cref="DomainErrorType"/>
+/// member is <em>not</em> a compile error here, and cannot be made into one. The switch below ends
+/// in a discard, and removing it does not promote a missing category to an error - it makes this
+/// switch itself fail with CS8524, "not exhaustive involving an unnamed enum value", because a
+/// C# enum can hold a value no member names. <c>TreatWarningsAsErrors</c> then stops the build on a
+/// switch that already handles every member there is. So a category added without an arm below
+/// reaches callers as a 500 and nothing says so. Adding one means editing this switch, by hand, in
+/// the same change - which is a one-line habit rather than a guarantee, and is worth knowing is a
+/// habit.
 /// </para>
 /// </remarks>
 internal static class ResultExtensions
