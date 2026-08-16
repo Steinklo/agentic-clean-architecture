@@ -18,7 +18,7 @@ Feature per aggregate, then a folder per use case. `<Feature>` is the **plural**
 | File | Path |
 |---|---|
 | Aggregate root | `src/Todo.Domain/<Feature>/<Aggregate>.cs`, at the feature root |
-| Child entity / value object / domain event | `src/Todo.Domain/<Feature>/` then `Entities/`, `ValueObjects/`, `Events/` |
+| Child entity / value object / domain event / enum | `src/Todo.Domain/<Feature>/` then `Entities/`, `ValueObjects/`, `Events/`, `Enums/` |
 | Command or query: request + handler in one file, and its validator beside it | `src/Todo.Application/<Feature>/Commands/<UseCase>/` or `Queries/<UseCase>/` |
 | DTO | `src/Todo.Application/<Feature>/Dtos/` — **not** the use-case folder |
 | Domain-event handler, and `<Aggregate>EventLog.cs` | `src/Todo.Application/<Feature>/Events/` |
@@ -42,7 +42,7 @@ Copy `src/Todo.Domain/TodoLists/TodoList.cs`. It must have all of:
 - A **private** constructor taking `Guid id` and its value objects, chaining `: base(id)`. Never a parameterless one beside it: EF binds the constructor with the fewest property parameters, so an empty one would win.
 - Every property `{ get; private set; }` (`Rules.EntitiesHaveNoPublicSetters`). Child collections are `IReadOnlyCollection<T>` over a `private readonly List<T> _items = [];` you initialise yourself; EF writes the field.
 - `public static Result<<Aggregate>> Create(...)` taking **scalars only**: call each value object's `Create`, return `Result.Failure<T>(x.Error)` on the first failure, mint the id with `Guid.CreateVersion7()`, `RaiseDomainEvent(new <Aggregate>CreatedEvent(...))`, return `Result.Success(instance)`.
-- Every state transition is a method returning `Result` or `Result<T>`, with its `DomainError` constructed **inline at the guard that rejects**. Choose the category deliberately — it is the only thing deciding the caller's status: `Validation` → 400, `NotFound` → 404, `Conflict` → 409, `Failure` → 500. A refused transition is a `Conflict`.
+- Every state transition is a method returning `Result` or `Result<T>`, with its `DomainError` constructed **inline at the guard that rejects**. Choose the category deliberately — it is the only thing deciding the caller's status: `Validation` → 400, `NotFound` → 404, `Conflict` → 409, `Failure` → 500. A refused transition is a `Conflict`. **Adding a member to `DomainErrorType` is not a compile error and cannot be made into one**, so a new category with no arm in `ResultExtensions.StatusCodeFor` reaches callers as a silent 500 — add the arm in the same change.
 - Dotted error codes, unique across `Todo.Domain` — `ErrorCodeUniquenessTests` scans its source for `DomainError.<Category>("literal"` and fails on a repeat. One rule rejecting at two entry points is written once in a private helper returning `DomainError?`, as `TodoList.ArchivedRejection()` does.
 
 In the same change it then needs a creation event and handler (§5), an EF configuration (§2b), a repository (§8), a migration (`add-migration` skill), and an endpoint base class (§10).
@@ -89,13 +89,24 @@ Copy `src/Todo.Domain/TodoLists/Entities/TodoItem.cs`.
 
 ## 5. A new domain event and its handler
 
-An event is **two files plus a log line**, none of them optional.
+**Decide whether the event should exist before you write it.** Raise one only when something must
+happen because of it. Mediator has no concept of an optional handler — `error MSG0005:
+MediatorGenerator found message without any registered handler: <YourEvent>` fails the build — so an
+event nothing reacts to still costs an event file, a handler file and a log entry, and leaves a
+handler whose whole body is a log line and `return ValueTask.CompletedTask`. That is not a cheap
+placeholder for later; it is three files of ceremony standing in for a decision not taken.
+
+An aggregate can settle three ways and still deserve one event, if only one of them has a
+consequence. "It would be symmetrical" is not a reason. Neither is "a test can assert on the log
+id" — assert on the state the caller can observe instead.
+
+An event that has earned its place is **two files plus a log line**, none of them optional.
 
 1. `src/Todo.Domain/<Feature>/Events/<Name>Event.cs` — `public sealed record <Name>Event(Guid <Aggregate>Id, ...) : DomainEvent(<Aggregate>Id);`, carrying primitives rather than the aggregate.
 2. `src/Todo.Application/<Feature>/Events/<Name>EventHandler.cs` — `internal sealed class <Name>EventHandler(ILogger<<Name>EventHandler> logger) : INotificationHandler<<Name>Event>`, returning `ValueTask.CompletedTask` when it has nothing to await.
 3. A `[LoggerMessage]` entry in `src/Todo.Application/<Feature>/Events/<Aggregate>EventLog.cs`, an `internal static partial class`. **`EventId` is a sequence**: `1000`–`1002` are the pipeline behaviours in `Common/Behaviours/BehaviourLog.cs`, `2000`–`2002` are `TodoListEventLog`. Continue that block for a TodoLists event (next is `2003`); a **new feature starts at the next free thousand**, so a second feature's log begins at `3000`. The id is not decoration — it is what §11's dispatch test matches on, so give every event a distinct one and never renumber an existing one. `Rules.LoggedEventIdsAreUnique` enforces distinctness; which block you take is convention.
 
-Without the handler the build fails with `error MSG0005: MediatorGenerator found message without any registered handler: <YourEvent>`, so **do not raise an event you have no reason to handle** — the handler costs a file whether or not it does anything.
+This is why the decision at the top of this section matters: the handler is not optional, so the only way to avoid a do-nothing handler is to not raise the event.
 
 Handlers run *inside* the unit of work, immediately before the save, so a handler's changes to a tracked aggregate join the same transaction, and events a handler raises are picked up on the next pass.
 
