@@ -548,6 +548,7 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           # Cleared for this step alone, as the verify step below does. It no longer
           # strictly matters -- this step now asks --classify, which reports ownership
           # and honours no bypass, because there is no verdict to bypass. Kept cleared
@@ -608,8 +609,35 @@ jobs:
             # it is reported to the job summary, the log, and the pull request.
             echo "The agent wrote outside the files it owns. Discarding:" >&2
 
+            # Capture BEFORE reverting. The discarded diff is the only record of what
+            # the agent was trying to say, and throwing it away is how a correct
+            # observation becomes invisible. On this pull request the agent went for
+            # the same stale skill on four consecutive runs; each time the guard did
+            # its job and each time the finding died with the revert, until a human
+            # happened to notice the pattern. Asking the agent to narrate instead does
+            # not work either -- its final message is not surfaced anywhere.
+            proposal="${RUNNER_TEMP}/discarded-proposal.md"
+            : >"${proposal}"
+
             for file in "${trespass[@]}"; do
               echo "  ${file}" >&2
+
+              {
+                echo "<details><summary><code>${file}</code></summary>"
+                echo
+                echo '```diff'
+                if git ls-files --error-unmatch "${file}" >/dev/null 2>&1; then
+                  git diff -- "${file}" | head -c 20000
+                else
+                  echo "(new file)"
+                  head -c 20000 -- "${file}"
+                fi
+                echo '```'
+                echo
+                echo '</details>'
+                echo
+              } >>"${proposal}"
+
               if git ls-files --error-unmatch "${file}" >/dev/null 2>&1; then
                 git checkout -- "${file}"
               else
@@ -632,6 +660,12 @@ jobs:
               echo
               echo 'This is worth reading rather than ignoring: the agent was told in its prompt not'
               echo 'to write these, and did. The instruction is not the control -- this step is.'
+              echo
+              echo '**What it wanted to change is below.** It is discarded, not rejected: the agent'
+              echo 'reads the code every run, so a repeated attempt on the same file usually means'
+              echo 'that file is stale. Apply it yourself if it is right.'
+              echo
+              cat "${proposal}"
             } >>"${GITHUB_STEP_SUMMARY}"
 
             if [ -n "${PR_NUMBER:-}" ]; then
@@ -641,6 +675,9 @@ jobs:
                 for file in "${trespass[@]}"; do echo "- \`${file}\`"; done
                 echo
                 echo "Nothing outside its own files reached this branch. Any map it corrected still landed."
+                echo
+                echo "**The change it wanted to make is in the [run summary](${RUN_URL}).** It is discarded,"
+                echo "not rejected -- if it keeps reaching for the same file, that file is probably stale."
               } | gh pr comment "${PR_NUMBER}" --body-file - || true
             fi
           fi
