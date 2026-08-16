@@ -41,6 +41,20 @@ gh secret set AGENT_APP_PRIVATE_KEY < path/to/key.pem
 
 Delete the downloaded `.pem` afterwards; GitHub has the secret and the file is a spare copy.
 
+## Two Apps, not one
+
+This trips people up, so it is worth being explicit: **the agent needs one App installed and one
+App created, and they are unrelated.**
+
+| App | Where it comes from | What it does |
+|---|---|---|
+| The vendor's agent App | already exists — e.g. [`github.com/apps/claude`](https://github.com/apps/claude) | the action exchanges an OIDC token with it to authenticate. This is what `id-token: write` in the workflow is for. |
+| The App you create above | you make it | signs the **push**, so the other checks re-run |
+
+Install the vendor's on this repository as well, or the agent step fails with
+*"…is not installed on this repository"* before it does any work — a clean failure, but an
+opaque one if you are expecting the credential alone to be enough.
+
 ## The agent credential
 
 `docs.yml` and `pr-review.yml` currently run Claude through `anthropics/claude-code-action`, which
