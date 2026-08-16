@@ -76,15 +76,21 @@ any consumer hardcodes a second copy of the patterns.
 
 Three kinds of document, and the distinction decides who may write each one.
 
-- **`docs/` is the rules.** How things must be built, and how they must be written down. Authored
-  by people, stable, changed only when a decision changes. **The documentation agent never writes
-  here**, with one exception below.
+- **`docs/rules/` is the rules.** How things must be built, and how they must be written down.
+  Authored by people, stable, changed only when a decision changes. **The documentation agent never
+  writes here** — with no exception, which is why the rules moved out of `docs/` and into their own
+  directory. While they sat at `docs/` and records sat at `docs/adr/` beneath them, this sentence
+  needed a carve-out, and a carve-out is what a reader forgets.
 - **`AGENTS.md` files are the map.** What features exist and where they live. These change every
   time code lands, which is exactly why the agent maintains them and humans do not hand-edit them.
 - **`docs/adr/` is the records.** Why a decision was taken. **Shared**: either a person or the
   agent may author one, and only a person may promote one to `accepted`. Guarding records against
   people would make them unpromotable; guarding them against the agent would discard the proposal
   it is asked for. `docs/rules/DOC-RULES.md` owns the gate and the form.
+
+`docs/setup.md` is none of the three. It is a guide to getting the harness running, nothing is
+measured against it, and it sits at the root of `docs/` rather than being filed under `rules/` to
+make the tree look tidier than it is.
 
 The path list lives in exactly one file, `.protected-paths.json`; never write a second copy of
 those patterns anywhere. It carries three lists, and the two consumers ask **different questions**
