@@ -18,7 +18,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { classify, loadRules, RULES_FILE } from "./protected-paths.mjs";
+import { agentMayWrite, classify, loadRules, RULES_FILE } from "./protected-paths.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MATCHER = "scripts/protected-paths.mjs";
@@ -32,12 +32,23 @@ const check = (name, ok, detail) => {
 
 const read = (rel) => readFileSync(path.join(REPO_ROOT, rel), "utf8");
 
+// A git worktree under .claude/worktrees/ is a complete second checkout of this
+// repository, so walking into one finds .protected-paths.json and this very file
+// again and reports them as consumers hardcoding the patterns. They are neither
+// consumers nor copies -- they are the same files, checked out twice. The agent
+// harness creates these on its own, so anyone running this locally would hit it.
+const SKIP_DIRECTORIES = new Set(["worktrees", "node_modules", ".git"]);
+
 function walk(dir, acc = []) {
   if (!existsSync(dir)) return acc;
   for (const entry of readdirSync(dir)) {
     const full = path.join(dir, entry);
-    if (statSync(full).isDirectory()) walk(full, acc);
-    else acc.push(path.relative(REPO_ROOT, full).split(path.sep).join("/"));
+    if (statSync(full).isDirectory()) {
+      if (SKIP_DIRECTORIES.has(entry)) continue;
+      walk(full, acc);
+    } else {
+      acc.push(path.relative(REPO_ROOT, full).split(path.sep).join("/"));
+    }
   }
   return acc;
 }
@@ -47,17 +58,34 @@ function walk(dir, acc = []) {
 check(`${RULES_FILE} exists`, existsSync(path.join(REPO_ROOT, RULES_FILE)));
 
 const rules = loadRules(REPO_ROOT);
-const patterns = [...rules.agentOwned.patterns, ...rules.humanOwned.patterns];
 
-// The agent writes maps, and adds decision records. Nothing else. If this list
+// Every list, by name. A category added to .protected-paths.json and not added here
+// is the quiet failure this file exists to prevent: its patterns would escape the
+// copy-detection below, so a consumer could fork them and nothing would say so.
+const OWNERSHIP_LISTS = ["agentOwned", "sharedOwned", "humanOwned"];
+
+const listsInFile = Object.keys(rules).filter((key) => Array.isArray(rules[key]?.patterns));
+
+check(
+  `every ownership list in ${RULES_FILE} is known to this checker`,
+  listsInFile.length === OWNERSHIP_LISTS.length &&
+    OWNERSHIP_LISTS.every((name) => listsInFile.includes(name)),
+  `this checker knows ${OWNERSHIP_LISTS.join(", ")}; the file declares ${listsInFile.join(", ")}`
+);
+
+const patterns = OWNERSHIP_LISTS.flatMap((name) => rules[name]?.patterns ?? []);
+
+// The agent writes maps. Records are shared with people. Nothing else. If agentOwned
 // ever grows to include docs/ or .claude/, the agent can rewrite the rules it is
 // measured against, which is the arrangement this whole guard exists to refuse.
 check(
   "the list names the maps the agent may write, and nothing that states a rule",
-  ["AGENTS.md", "**/AGENTS.md", "CLAUDE.md", "docs/adr/**"].every((p) => rules.agentOwned.patterns.includes(p)) &&
+  ["AGENTS.md", "**/AGENTS.md", "CLAUDE.md"].every((p) => rules.agentOwned.patterns.includes(p)) &&
+    rules.sharedOwned.patterns.includes("docs/adr/**") &&
     rules.humanOwned.patterns.includes("docs/adr/TEMPLATE.md") &&
-    !rules.agentOwned.patterns.some((p) => p === "docs/**" || p === ".claude/**"),
-  `agentOwned=${rules.agentOwned.patterns} humanOwned=${rules.humanOwned.patterns}`
+    !rules.agentOwned.patterns.some((p) => p === "docs/**" || p === ".claude/**") &&
+    !rules.sharedOwned.patterns.some((p) => p.startsWith("docs/") && p !== "docs/adr/**"),
+  `agentOwned=${rules.agentOwned.patterns} sharedOwned=${rules.sharedOwned.patterns} humanOwned=${rules.humanOwned.patterns}`
 );
 
 // --- 2. nobody keeps a second copy -------------------------------------------
@@ -122,15 +150,19 @@ const cases = [
   ["src/Todo.Domain/AGENTS.md", true, "a layer map, guarded by **/AGENTS.md"],
   ["src/Todo.Api/AGENTS.md", true, "a layer map, guarded by **/AGENTS.md"],
   ["CLAUDE.md", true, "guarded verbatim"],
-  ["docs/adr/0007-some-decision.md", true, "the agent proposes records"],
-  ["docs/adr/nested/note.md", true, "docs/adr/** spans segments"],
+
+  // Records: shared, so a human writing one is NOT a violation. This is the pair that
+  // makes a record promotable to `accepted` at all -- guarding it would mean only the
+  // agent could ever write there, and only a person may promote.
+  ["docs/adr/0007-some-decision.md", false, "shared: either party may author a record"],
+  ["docs/adr/nested/note.md", false, "docs/adr/** spans segments, and is shared"],
 
   // Rules: people's to write, so the agent must not touch them.
-  ["docs/architecture.md", false, "a rule, not a map"],
-  ["docs/conventions.md", false, "a rule, not a map"],
-  ["docs/gotchas.md", false, "a rule, not a map"],
-  ["docs/layers/Todo.Domain.md", false, "a layer's rules, not its map"],
-  ["docs/DOC-RULES.md", false, "the form the agent writes maps in"],
+  ["docs/rules/architecture.md", false, "a rule, not a map"],
+  ["docs/rules/conventions.md", false, "a rule, not a map"],
+  ["docs/rules/gotchas.md", false, "a rule, not a map"],
+  ["docs/rules/layers/Todo.Domain.md", false, "a layer's rules, not its map"],
+  ["docs/rules/DOC-RULES.md", false, "the form the agent writes maps in"],
   ["docs/adr/TEMPLATE.md", false, "the record form; the agent fills it in, never redesigns it"],
   [".claude/settings.json", false, "the hooks that constrain the agent"],
   [".claude/skills/new-feature/SKILL.md", false, "a procedure people author"],
@@ -147,6 +179,50 @@ const wrong = cases
   .map(([p, expected, why, actual]) => `${p}: expected protected=${expected} (${why}), got ${actual}`);
 
 check(`precedence holds across ${cases.length} cases (carve-outs beat guarded patterns)`, wrong.length === 0, wrong.join("\n    "));
+
+// --- 3b. the two consumers ask different questions ---------------------------
+//
+// The self-check in docs.yml used to compute "may the agent keep this?" by negating
+// `protected`. That worked only while ownership was a boolean. It is not: a shared
+// path answers "yes" to BOTH questions, and an unguarded path answers "no" to the
+// agent's while answering "yes" to the human's. Anything that reintroduces the
+// inversion breaks here rather than silently discarding a record the agent was asked
+// to write.
+
+const agentWriteCases = [
+  ["AGENTS.md", true, "the agent's own map"],
+  ["src/Todo.Domain/AGENTS.md", true, "a layer map"],
+  ["docs/adr/0007-some-decision.md", true, "shared: the agent may propose a record"],
+  ["docs/adr/TEMPLATE.md", false, "the record form is the humans', not the agent's"],
+  ["docs/rules/architecture.md", false, "a rule"],
+  [".claude/skills/new-feature/SKILL.md", false, "a procedure people author"],
+  ["src/Todo.Domain/TodoList.cs", false, "code: unguarded, and still not the agent's"],
+  ["README.md", false, "unguarded, and still not the agent's"],
+];
+
+const agentWrong = agentWriteCases
+  .map(([p, expected, why]) => [p, expected, why, agentMayWrite(classify(p, rules, REPO_ROOT))])
+  .filter(([, expected, , actual]) => expected !== actual)
+  .map(([p, expected, why, actual]) => `${p}: expected agentMayWrite=${expected} (${why}), got ${actual}`);
+
+check(
+  `the agent-write question is answered directly, not by negating "protected" (${agentWriteCases.length} cases)`,
+  agentWrong.length === 0,
+  agentWrong.join("\n    ")
+);
+
+// The proof that the two questions are genuinely different, stated as an assertion so
+// that collapsing them back into one boolean cannot pass.
+const sharedExample = "docs/adr/0007-some-decision.md";
+const unguardedExample = "README.md";
+check(
+  "a shared path is writable by both parties, and an unguarded path by only one",
+  classify(sharedExample, rules, REPO_ROOT).protected === false &&
+    agentMayWrite(classify(sharedExample, rules, REPO_ROOT)) === true &&
+    classify(unguardedExample, rules, REPO_ROOT).protected === false &&
+    agentMayWrite(classify(unguardedExample, rules, REPO_ROOT)) === false,
+  `${sharedExample} and ${unguardedExample} are both unprotected, so "protected" alone cannot tell them apart`
+);
 
 // --- 4. the matcher finds the rules file on its own --------------------------
 //
@@ -168,7 +244,7 @@ try {
   const viaDefault = loadRules();
   defaultRootWorks =
     classify("AGENTS.md", viaDefault).protected === true &&
-    classify("docs/architecture.md", viaDefault).protected === false;
+    classify("docs/rules/architecture.md", viaDefault).protected === false;
   if (!defaultRootWorks) defaultRootDetail = "the rules file was found, but classification through the default root disagrees";
 } catch (err) {
   defaultRootDetail = `${err.message}\n    REPO_ROOT in ${MATCHER} does not point at this repository`;

@@ -18,17 +18,28 @@
 
 ## Decision record
 
-<!-- Optional. Link an ADR, or delete this section.
-     Only for a decision that is hard to reverse AND surprising without context AND
-     the result of a real trade-off with a rejected alternative you can name.
-     Never for a bug fix, a behaviour-preserving refactor, a test-only change or a
-     version bump. See docs/DOC-RULES.md. -->
+<!-- Optional. Delete this section unless the change took a real decision.
+
+     THIS SECTION IS THE INPUT, not a pointer. State the decision and, in one line,
+     THE ALTERNATIVE YOU REJECTED AND WHY. The documentation agent transcribes what
+     you write here into docs/adr/ as `reasoning: authored`. Leave it out and, if the
+     gate passes anyway, it files the record with `reasoning: reconstructed` and a
+     rejected alternative it inferred from your diff - which is a guess, and is
+     labelled as one.
+
+     The bar is all three at once: hard to reverse, surprising without context, and a
+     real trade-off a reasonable person would have decided the other way. Never for a
+     bug fix, a behaviour-preserving refactor, a test-only change or a version bump.
+     See docs/rules/DOC-RULES.md.
+
+     Decision:
+     Rejected alternative, and why: -->
 
 ---
 
-<!-- The documentation agent writes the AGENTS.md maps and decision records on this pull
-     request. Do not hand-edit those - the protected-path check will fail.
-     Agent-owned: AGENTS.md (root and per-layer), CLAUDE.md, docs/adr/** except
-     docs/adr/TEMPLATE.md. Everything else belongs to people, including the rest of
-     docs/, .claude/skills/** and README.md.
-     .protected-paths.json is the source of truth; read it there rather than this note. -->
+<!-- The documentation agent writes the AGENTS.md maps on this pull request, and may
+     propose a decision record. Do not hand-edit a map - the protected-path check will
+     fail. Records are shared: you may write one too, and only you may promote one to
+     `accepted`.
+     .protected-paths.json is the source of truth for who owns what; read it there
+     rather than trusting a list in this note. -->

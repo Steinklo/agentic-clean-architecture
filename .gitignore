@@ -36,3 +36,9 @@ Thumbs.db
 ## Working notes for building this template -- specs, tickets, scratch files.
 ## Never ships to a clone: it is the scaffolding, not the product.
 .scratch/
+
+## Git worktrees the agent harness creates for isolated runs. Each one is a full
+## second checkout of this repository, so committing it would nest the repo inside
+## itself. scripts/verify-protected-paths.mjs skips this directory for the same
+## reason -- a checkout is not a consumer keeping its own copy of the rules.
+.claude/worktrees/

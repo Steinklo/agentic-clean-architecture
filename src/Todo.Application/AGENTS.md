@@ -1,7 +1,7 @@
 # Todo.Application — the map
 
 What this layer contains today. **The rules are in
-[`docs/layers/Todo.Application.md`](../../docs/layers/Todo.Application.md)** and are not repeated
+[`docs/rules/layers/Todo.Application.md`](../../docs/rules/layers/Todo.Application.md)** and are not repeated
 here.
 
 ## Features

@@ -55,7 +55,7 @@ suite catches it whether or not anyone read this file.
   authenticates.
 
 - **The agent needs one App installed and one App created.** They are unrelated and neither
-  substitutes for the other; see [`setup.md`](setup.md). Missing the installed one fails with
+  substitutes for the other; see [`setup.md`](../setup.md). Missing the installed one fails with
   *"…is not installed on this repository"* before any work happens.
 
 - **`--max-turns` is a budget the prompt's reading list spends.** The review agent reads the rules

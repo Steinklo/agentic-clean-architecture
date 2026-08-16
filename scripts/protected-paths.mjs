@@ -6,9 +6,18 @@
 // check (issue 14). Do not paste the patterns in here -- scripts/verify-protected-paths.mjs
 // fails the moment a second copy appears.
 //
-// One mode, on purpose:
-//   --check <path>...  -- prints a violation report for each protected path in the
-//                         argument list. Exit 0 clean, 1 violation, 2 could not run.
+// Two modes, and they answer DIFFERENT questions. Do not derive one from the other:
+//   --check <path>...     -- "may a HUMAN write these?" Prints a violation report for
+//                            each protected path. Exit 0 clean, 1 violation, 2 could not run.
+//   --classify <path>...  -- "who owns each of these?" Prints one verdict per line, in
+//                            argument order: agent-owned, shared-owned, human-owned,
+//                            unguarded or outside-repo. Exit 0 always, 2 could not run.
+//
+// The second mode exists because ownership stopped being a boolean when decision records
+// became shared. The documentation agent's self-check used to ask --check and invert the
+// answer -- reading "not protected" as "the agent trespassed here". That inversion is
+// wrong for a shared path, which both parties may write, and it is unreadable besides.
+// Ask --classify and branch on the name.
 //
 // There is NO local-hook mode, and adding one would be a mistake. AGENTS.md states
 // the rule: this guard is owned by CI and nothing else, because a hook binds Claude
@@ -79,7 +88,11 @@ export function toRepoRelative(filePath, repoRoot = REPO_ROOT) {
 
 /**
  * The whole rule, in one place, for both consumers.
- * Precedence: a humanOwned match always wins over an agentOwned match.
+ *
+ * Precedence is humanOwned, then sharedOwned, then agentOwned, first match deciding.
+ * `protected` answers only the human question -- "may a person write this?" -- so it is
+ * false for a shared path. A caller asking what the AGENT may write must read `reason`
+ * and accept both "agent-owned" and "shared-owned"; it must never negate `protected`.
  */
 export function classify(filePath, rules = loadRules(), repoRoot = REPO_ROOT) {
   const relPath = toRepoRelative(filePath, repoRoot);
@@ -88,10 +101,21 @@ export function classify(filePath, rules = loadRules(), repoRoot = REPO_ROOT) {
   const carveOut = matchesAny(relPath, rules.humanOwned.patterns);
   if (carveOut) return { relPath, protected: false, reason: "human-owned", pattern: carveOut };
 
+  // Shared before agent-owned, because docs/adr/** matches both lists conceptually and
+  // the shared answer is the permissive one. Ordering it after would re-protect records
+  // against the people who have to promote them.
+  const shared = matchesAny(relPath, rules.sharedOwned.patterns);
+  if (shared) return { relPath, protected: false, reason: "shared-owned", pattern: shared };
+
   const guarded = matchesAny(relPath, rules.agentOwned.patterns);
   if (guarded) return { relPath, protected: true, reason: "agent-owned", pattern: guarded };
 
   return { relPath, protected: false, reason: "unguarded" };
+}
+
+/** Whether the documentation agent is allowed to leave a write at this path. */
+export function agentMayWrite(verdict) {
+  return verdict.reason === "agent-owned" || verdict.reason === "shared-owned";
 }
 
 export function explain(verdict, rules) {
@@ -105,6 +129,7 @@ export function explain(verdict, rules) {
     ...rules.guidance.map((g) => `  - ${g}`),
     ``,
     `Human-owned carve-outs you can always edit: ${rules.humanOwned.patterns.join(", ")}`,
+    `Shared with the agent, and also yours to write: ${rules.sharedOwned.patterns.join(", ")}`,
   ].join("\n");
 }
 
@@ -114,13 +139,24 @@ const bypassed = process.env.PROTECTED_PATHS_BYPASS === "1";
 
 function main() {
   const args = process.argv.slice(2);
+  const mode = args[0];
 
-  if (args[0] !== "--check") {
-    console.error("usage: node scripts/protected-paths.mjs --check <path> [<path> ...]");
+  if (mode !== "--check" && mode !== "--classify") {
+    console.error("usage: node scripts/protected-paths.mjs --check|--classify <path> [<path> ...]");
     process.exit(2);
   }
 
   const rules = loadRules();
+
+  // --classify reports ownership and never fails. It is not a guard, so
+  // PROTECTED_PATHS_BYPASS does not apply to it -- there is no verdict to bypass.
+  if (mode === "--classify") {
+    for (const candidate of args.slice(1)) {
+      console.log(classify(candidate, rules).reason);
+    }
+    process.exit(0);
+  }
+
   let violations = 0;
   for (const candidate of args.slice(1)) {
     const verdict = classify(candidate, rules);

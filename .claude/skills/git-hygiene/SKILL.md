@@ -82,6 +82,14 @@ node scripts/protected-paths.mjs --check $(git diff --cached --name-only)
 - Exit 2: the matcher could not run. That is not a verdict — fix the script rather than reading it
   as either answer.
 
+**A decision record is yours to write.** `docs/adr/**` is *shared*, not agent-owned, so `--check`
+passes on it: write one yourself, or state the decision and the alternative you rejected in the
+pull request body and let the agent transcribe it. Only you can promote one to `accepted`.
+
+`--check` answers "may **I** write this?". There is a second mode, `--classify`, which names the
+owner instead — the documentation agent's self-check uses it, because "the agent may keep this" is
+a different question with a different answer on a shared path. You want `--check`.
+
 `.protected-paths.json` is the single source of truth for which paths are guarded. **Read it there.
 Copy no pattern from it into any other file** — `node scripts/verify-protected-paths.mjs` fails the
 build when a pattern literal appears a second time, and a second copy that drifts is the exact
@@ -95,19 +103,32 @@ variable belongs to the documentation agent's own workflow.
 
 **Squash-merge is forbidden here**, and this is not a style preference.
 
-The documentation agent pushes `[bot]`-authored commits onto your branch carrying `AGENTS.md` maps.
-`.github/scripts/protected-paths-guard.sh` exempts them **by author identity**. Squashing collapses
-them into one commit authored by *you* — so you become the author of agent-owned files, and
-`protected-paths` fails the pull request.
+The documentation agent pushes `[bot]`-authored commits onto your branch — `AGENTS.md` maps, and
+decision records under `docs/adr/`. `.github/scripts/protected-paths-guard.sh` exempts them **by
+author identity**. Squashing collapses them into one commit authored by *you*, so you become the
+author of agent-owned files and `protected-paths` fails the pull request.
 
 So: **merge or rebase-merge**, never squash. One commit that is both yours and carries the agent's
 files cannot exist.
 
+**A record commit alone would survive a squash, and that is a coincidence rather than a licence.**
+`docs/adr/**` is shared, so you authoring one is legal — a pull request whose only bot commit is a
+proposed record would squash green. The moment it also carries a map, which is the ordinary case,
+it fails. Do not learn the exception.
+
 ## 3. The documentation agent's commits on your branch
 
 On every push to a pull request branch, `.github/workflows/docs.yml` regenerates the maps and pushes
-**its own commit onto your branch**, authored as `<app-slug>[bot]` and carrying the
-`Docs-Agent: regenerated` trailer. One human push produces at most one agent commit.
+**its own commits onto your branch**, authored as `<app-slug>[bot]`. There are at most two per human
+push, and they carry different trailers because they are different kinds of work:
+
+| Commit | Trailer | What it is |
+|---|---|---|
+| `docs: regenerate for #N` | `Docs-Agent: regenerated` | Maps re-derived from the code. |
+| `docs: propose a decision record for #N` | `Docs-Agent: proposed-record` | Newly authored prose, which can be wrong in ways a map cannot. Read it. |
+
+The loop guard matches the `Docs-Agent:` **prefix**, so either one stops the next run from
+regenerating this one's work.
 
 The guarded files are legal in the agent's commits and illegal in yours, and that distinction
 survives only while its commits keep their authorship. So:
@@ -121,7 +142,7 @@ survives only while its commits keep their authorship. So:
 Anything that rewrites, absorbs or reverses one of its commits makes **you** the author of an
 agent-owned file. That rules out `git rebase` over them, `git commit --amend` onto one, squash or
 fixup absorbing one, and `git revert` of one — the revert is a new commit of yours touching guarded
-paths. If an agent commit says something wrong, fix the code or `docs/DOC-RULES.md` and push; the
+paths. If an agent commit says something wrong, fix the code or `docs/rules/DOC-RULES.md` and push; the
 next run regenerates it.
 
 ## 4. History rewriting
@@ -140,4 +161,4 @@ next run regenerates it.
 | `docs / regenerate` red at the push step | You pushed while the agent was working; its non-fast-forward push failed | Nothing. Your push already started the next run |
 | `docs / regenerate` says "already regenerated" | The head commit is the agent's | Expected. Push a commit of your own to trigger the next run |
 | No `docs` commit appears at all | The pull request is from a fork, or no agent credential is configured | Expected. The job summary says which |
-| An agent workflow passes in about a second | It refused to run: the branch's copy of the workflow differs from `main`, and that workflow lets the action authenticate itself | Expected for `pr-review` on a pull request that edits it. `docs` is unaffected — see `docs/gotchas.md` |
+| An agent workflow passes in about a second | It refused to run: the branch's copy of the workflow differs from `main`, and that workflow lets the action authenticate itself | Expected for `pr-review` on a pull request that edits it. `docs` is unaffected — see `docs/rules/gotchas.md` |
