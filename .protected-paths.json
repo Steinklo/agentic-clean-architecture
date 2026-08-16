@@ -1,0 +1,53 @@
+{
+  "_readme": [
+    "Single source of truth for the documentation guard.",
+    "Two consumers read THIS FILE and must never keep their own copy of the patterns:",
+    "  1. the CI check (it owns this rule) -> scripts/protected-paths.mjs",
+    "  2. the CI protected-path check -> .github/workflows/protected-paths.yml",
+    "The CI check should shell out to the same script rather than reimplement matching:",
+    "  node scripts/protected-paths.mjs --check <path> [<path> ...]",
+    "which exits 1 and prints one violation report per protected path.",
+    "`node scripts/verify-protected-paths.mjs` fails if a consumer hardcodes a copy."
+  ],
+
+  "model": [
+    "Two kinds of document, split by how often they change and who therefore writes them.",
+    "RULES (docs/) say how things must be built. People author them; they change when a",
+    "decision changes, not when code does. The agent reads them and never writes them.",
+    "MAPS (the AGENTS.md files) say what exists and where. They change every time a feature",
+    "lands, which is why the agent maintains them and people do not hand-edit them.",
+    "So agentOwned is the short list of what the agent may write. Everything else -- docs/,",
+    ".claude/, src/, tests/ -- belongs to people, and the agent obeying rules it cannot",
+    "rewrite is the whole point."
+  ],
+
+  "precedence": "humanOwned wins. A path is protected if and only if it matches at least one agentOwned pattern AND matches no humanOwned pattern. Carve-outs are nested inside guarded directories, so they must be evaluated after, and override, the agentOwned patterns.",
+
+  "matching": "Patterns are repo-root-relative, forward-slash, case-insensitive globs. `**` matches any number of path segments; `*` and `?` match within a single segment. Paths outside the repository are never protected.",
+
+  "agentOwned": {
+    "owner": "the documentation agent",
+    "reason": "Maps are regenerated from the code on the pull request that changed it, so a hand edit here is overwritten by the next run and fails this check in CI. Change the code and let the map follow. Decision records are the one place the agent adds rather than rewrites, and it may only ever leave one `proposed`.",
+    "patterns": [
+      "AGENTS.md",
+      "**/AGENTS.md",
+      "CLAUDE.md",
+      "docs/adr/**"
+    ]
+  },
+
+  "humanOwned": {
+    "owner": "humans",
+    "reason": "The decision-record form is authored by people; the agent fills it in, it does not redesign it.",
+    "patterns": [
+      "docs/adr/TEMPLATE.md"
+    ]
+  },
+
+  "guidance": [
+    "Change the code, and let the documentation agent regenerate the map on the pull request.",
+    "If the rule itself is wrong rather than the map, edit it in docs/ - that whole directory is yours.",
+    "If this path should not be guarded at all, edit .protected-paths.json - that file is human-owned on purpose.",
+    "Set PROTECTED_PATHS_BYPASS=1 in the environment only when you are the documentation agent, or when setting the harness up for the first time."
+  ]
+}

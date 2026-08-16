@@ -1,0 +1,67 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,md}]
+indent_size = 2
+
+[*.{csproj,props,targets}]
+indent_size = 2
+
+[*.cs]
+indent_size = 4
+
+# --- Language conventions -------------------------------------------------
+
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_using_directive_placement = outside_namespace:warning
+csharp_prefer_braces = true:suggestion
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+
+dotnet_style_qualification_for_field = false:warning
+dotnet_style_qualification_for_property = false:warning
+dotnet_style_qualification_for_method = false:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+dotnet_style_readonly_field = true:warning
+dotnet_style_object_initializer = true:suggestion
+dotnet_style_collection_initializer = true:suggestion
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:warning
+
+# Unused usings are an error: agent-generated files accumulate them fast.
+dotnet_diagnostic.IDE0005.severity = warning
+
+# --- Naming ---------------------------------------------------------------
+
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_rule.private_fields_underscore.severity = warning
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# --- Test projects --------------------------------------------------------
+# These analyzers are written for library APIs and misfire on xUnit's idioms.
+
+[tests/**/*.cs]
+
+# Test method names use Method_Scenario_ExpectedResult, which needs underscores.
+dotnet_diagnostic.CA1707.severity = none
+
+# xUnit collection definitions are named *Collection by convention.
+dotnet_diagnostic.CA1711.severity = none
+
+# Fixtures release their resources through IAsyncLifetime.DisposeAsync, which
+# CA1001 does not recognise - it only looks for IDisposable.
+dotnet_diagnostic.CA1001.severity = none

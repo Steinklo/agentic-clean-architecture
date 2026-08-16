@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Respawn" />
+    <PackageReference Include="Testcontainers.MsSql" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Todo.Api\Todo.Api.csproj" />
+    <ProjectReference Include="..\..\src\Todo.Application\Todo.Application.csproj" />
+    <ProjectReference Include="..\..\src\Todo.Infrastructure\Todo.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Todo.Domain\Todo.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

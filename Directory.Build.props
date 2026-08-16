@@ -1,0 +1,33 @@
+<Project>
+
+  <!--
+    Shared compiler properties for every project in the solution.
+    Declared once here so no .csproj repeats them. See AGENTS.md.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <!--
+    Style and correctness are enforced at build time, not at review time.
+    A warning an agent can ignore is not a rule.
+  -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <!--
+      IDE0005 (remove unnecessary usings) only runs on build when documentation
+      file generation is on - see dotnet/roslyn#41640. Turning that on also turns
+      on CS1591 (missing XML comment on a public member), which we do not want,
+      so it is suppressed. Do not remove either line without removing the other.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+</Project>

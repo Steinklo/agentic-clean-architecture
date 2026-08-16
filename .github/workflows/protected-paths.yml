@@ -1,0 +1,70 @@
+# Protected-path guard -- the enforcement half of the documentation guard.
+#
+# Fails a pull request when a human-authored commit edits a file the
+# documentation agent owns. It ships as a check inside the repository rather
+# than as branch protection, so it works the instant someone clones this
+# template, with no GitHub-side configuration.
+#
+# The guarded path list is NOT here, and must never be copied here. It lives in
+# .protected-paths.json and is interpreted by scripts/protected-paths.mjs,
+# the same matcher the local PreToolUse hook uses. That is also why this
+# workflow has no `paths:` trigger filter: writing one would mean pasting a
+# second copy of the patterns into this file, which is precisely the drift
+# the guard forbids and scripts/verify-protected-paths.mjs fails the build over.
+# Running on every pull request is also what lets this become a required check
+# -- a path-filtered workflow never reports a status on the pull requests it
+# skips, so a required check would block them forever.
+#
+# Promoting it to a required check needs no change to this file: enable branch
+# protection and require the status named "protected-paths / guard". The
+# workflow name and the job id below are the two halves of that name; keep both
+# stable.
+
+name: protected-paths
+
+# `pull_request`, deliberately not `pull_request_target`: this check reads a
+# diff and needs no secrets, so it runs on pull requests from forks, where the
+# agent workflows cannot. `pull_request_target` would run fork code against the
+# base repository's secrets and is rejected in this design.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-paths-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: guard
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 -- the default shallow clone has neither the base commit
+      # nor the pull request's own commits, and both are needed to work out
+      # which commits are being proposed and who authored them.
+      - name: Check out the pull request with its history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Anti-drift. Fails if anything in this repository has grown its own copy
+      # of the pattern list, or if carve-out precedence has stopped holding.
+      # Runs first: if the single source of truth is broken, the verdict below
+      # is not trustworthy.
+      - name: Verify the guard reads a single source of truth
+        run: node scripts/verify-protected-paths.mjs
+
+      # Node is preinstalled on the runner, and the repository already depends
+      # on it for its hooks, so there is nothing to set up.
+      #
+      # PROTECTED_PATHS_BYPASS must NOT be set here -- the matcher honours it in
+      # --check mode, so setting it would silently disable this guard. The
+      # documentation agent (issue 15) is exempted instead by commit authorship:
+      # see the header of the script below.
+      - name: Check human-authored commits against the protected-path list
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash .github/scripts/protected-paths-guard.sh

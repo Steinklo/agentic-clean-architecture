@@ -1,0 +1,176 @@
+# ===========================================================================
+# The whole stack, for development.
+#
+#   docker compose up            API + SQL Server. The API answers on
+#                                http://localhost:8080 once the database is
+#                                ready, with migrations already applied.
+#
+#   docker compose up db         SQL Server on its own, for the inner loop:
+#                                run Todo.Api from your IDE against it. See
+#                                "The database on its own" below.
+#
+#   docker compose down -v       Stop everything and delete the database
+#                                volume. Without -v the data outlives the
+#                                containers, which is usually what you want
+#                                and occasionally exactly what you don't.
+#
+# ---------------------------------------------------------------------------
+# ARM64 (Apple Silicon, Snapdragon X, ...): this file cannot work here.
+#
+# Microsoft ships SQL Server container images for x86-64 only, and explicitly
+# does not support running them under Rosetta 2, Prism or QEMU - that holds for
+# every version, including SQL Server 2025. There is no ARM image to fall back
+# to and no emulator that is supported. On such a host, point
+# ConnectionStrings__TodoDb at a SQL Server running elsewhere, or use an
+# x86-64 machine or CI. The same limitation stops the integration tests
+# running natively there.
+# ---------------------------------------------------------------------------
+
+name: todo
+
+services:
+
+  # =========================================================================
+  # SQL Server
+  # =========================================================================
+  db:
+    # Pinned to an exact cumulative update, matching the image the integration
+    # tests use. `latest` would let a server-side retag change what you develop
+    # against without a commit.
+    image: mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04
+
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+
+      # ---------------------------------------------------------------
+      # This password is a development-only literal, and it is written the
+      # way it is so that it cannot be mistaken for anything else. It is in
+      # source control on purpose: this container is reachable from your
+      # machine and nowhere else, and a password you have to invent before
+      # the template runs is a worse first experience for no security gain.
+      #
+      # Nothing about this arrangement scales past localhost. A deployed
+      # database's credentials belong somewhere they are never committed -
+      # the platform's secret store, injected as
+      # ConnectionStrings__TodoDb - and this file is not the pattern to
+      # copy for that.
+      #
+      # The same literal appears in src/Todo.Api/appsettings.Development.json
+      # and in TodoDbContextFactory's design-time string, so that the
+      # composed run, an IDE run against `docker compose up db`, and
+      # `dotnet ef` commands all reach the same server without editing
+      # anything.
+      # ---------------------------------------------------------------
+      MSSQL_SA_PASSWORD: LocalDevOnly_NotASecret1
+
+    ports:
+      # Published so an IDE-run API, `dotnet ef`, and SSMS/Azure Data Studio
+      # can all reach it. If something already holds 1433 on this machine,
+      # change the left-hand side only - the API container talks to the
+      # container port over the compose network, not through this mapping.
+      - "1433:1433"
+
+    volumes:
+      - todo-db-data:/var/opt/mssql
+
+    # -------------------------------------------------------------------
+    # Readiness, not liveness. This is the part of the file to leave alone.
+    #
+    # A started SQL Server container is not a usable database. The engine
+    # binds port 1433 well before it has finished recovering its system
+    # databases, which takes tens of seconds on a cold start. Anything that
+    # waits on the port - a TCP probe, `nc -z`, wait-for-it.sh - therefore
+    # reports ready while every query still fails, and the API comes up,
+    # fails to migrate, and dies. That exact mistake has already cost this
+    # repository real debugging time; the integration fixture carries the
+    # same lesson in TodoApiFixture.WaitForSqlServerAsync.
+    #
+    # So the probe runs a query. If `SELECT 1` returns, the engine is
+    # serving, which is the actual precondition the API has.
+    #
+    # -C is required by the mssql-tools18 client: it trusts the server's
+    # self-signed development certificate, which nothing else will.
+    # The tools path is version-specific - it has moved between SQL Server
+    # releases - and is correct for the pinned image above.
+    #
+    # start_period gives the cold start room without counting failures
+    # against `retries`; start_interval polls quickly during that window so
+    # a warm start is detected in seconds rather than at the next interval.
+    # -------------------------------------------------------------------
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -b -Q "SELECT 1" -o /dev/null
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+      start_interval: 2s
+
+  # =========================================================================
+  # The API
+  # =========================================================================
+  api:
+    build:
+      # The root, not src/Todo.Api - Directory.Packages.props and
+      # Directory.Build.props live there and the build fails without them.
+      context: .
+      dockerfile: src/Todo.Api/Dockerfile
+
+    depends_on:
+      db:
+        # The whole point of the healthcheck above. `condition: service_started`
+        # - the default - would start the API the moment the database process
+        # exists, which is far too early.
+        condition: service_healthy
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+
+      # ---------------------------------------------------------------
+      # This is how the composed run and a local run differ without anyone
+      # editing code. Configuration providers are layered, and the
+      # environment variable provider is added last, so it wins:
+      #
+      #   appsettings.json                  (no connection string)
+      #   appsettings.Development.json      Server=localhost,1433  <- IDE runs
+      #   environment variables             Server=db,1433         <- this
+      #
+      # `db` is the service name above, resolved by compose's DNS on the
+      # project network. The double underscore is the environment variable
+      # provider's section separator: ConnectionStrings__TodoDb is
+      # ConnectionStrings:TodoDb.
+      # ---------------------------------------------------------------
+      ConnectionStrings__TodoDb: "Server=db,1433;Database=Todo;User Id=sa;Password=LocalDevOnly_NotASecret1;Encrypt=True;TrustServerCertificate=True"
+
+      # Applies pending migrations during startup, so a fresh `up` gives a
+      # usable database with no manual step. Deliberately opt-in, and
+      # deliberately not a production pattern - DatabaseMigrator explains at
+      # length why, and what to do instead.
+      Database__MigrateOnStartup: "true"
+
+    ports:
+      - "8080:8080"
+
+# ===========================================================================
+# The database on its own
+#
+#   docker compose up db
+#
+# starts SQL Server and nothing else, and leaves it on localhost:1433 for an
+# API started from your IDE. appsettings.Development.json already points there
+# and already sets Database:MigrateOnStartup, so F5 is the entire setup.
+#
+# This is a service argument rather than `--profile something`, and that is not
+# an oversight. Compose profiles can only ever *add* services: a service with
+# no `profiles` key is enabled unconditionally, and no flag can subtract it. To
+# make `--profile db` exclude the API, the API would have to carry a profile of
+# its own - at which point a bare `docker compose up` starts nothing but the
+# database, and the one-command first run this file exists for is gone. Naming
+# the service is the supported way to ask for a subset, and it composes with
+# everything else (`--build`, `-d`, `logs`, `down`).
+# ===========================================================================
+
+volumes:
+  todo-db-data:

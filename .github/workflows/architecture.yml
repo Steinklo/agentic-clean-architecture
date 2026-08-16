@@ -1,0 +1,74 @@
+# Architecture rules, as their own check (issue 13).
+#
+# They are separate from pr-build so that a layering violation fails in seconds
+# rather than after the full Testcontainers suite has started a SQL Server
+# container.
+#
+# Three things keep that promise, and all three are load-bearing:
+#
+#   1. Separate workflow, not a job inside pr-build. A separate workflow starts
+#      immediately and reports on its own, instead of queueing behind or being
+#      cancelled with the container-backed suite.
+#   2. It builds tests/Todo.ArchitectureTests only -- never Todo.slnx. That
+#      project references the four src projects and nothing else, so the run
+#      never restores Testcontainers, Respawn or the EF Core tooling that the
+#      integration suite needs.
+#   3. No Docker, no service container, no database. NetArchTest reads the
+#      compiled assemblies; there is nothing to wait for.
+#
+# It is also NOT gated on which files changed. It is cheap enough that the gate
+# would cost more than it saves, and an ungated check reports a status on every
+# pull request, which is what a required check needs.
+#
+# Required-check name: "architecture / architecture rules / test".
+
+name: architecture
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: architecture-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  architecture-rules:
+    name: architecture rules
+    uses: ./.github/workflows/build.yml
+    with:
+      build-target: tests/Todo.ArchitectureTests/Todo.ArchitectureTests.csproj
+      test-projects: tests/Todo.ArchitectureTests/Todo.ArchitectureTests.csproj
+      results-name: architecture-test-results
+      # Generous only so that a hang is reported as a failure rather than
+      # running for the default six hours. A healthy run is seconds.
+      timeout-minutes: 10
+
+  # The instruction files cite rules by name rather than restating them, which is
+  # what stops the same rule being written in five places and drifting apart. The
+  # cost of citing is that a citation can go stale silently when a rule is renamed,
+  # so this checks every `Rules.<Name>` in prose still resolves.
+  #
+  # Deliberately not folded into the job above: it needs Node and no .NET, runs in
+  # about a second, and a broken citation should be reported as its own thing
+  # rather than as an architecture-test failure, which it is not.
+  rule-citations:
+    name: rule citations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Every cited rule exists
+        run: node scripts/verify-rule-citations.mjs

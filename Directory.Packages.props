@@ -1,0 +1,57 @@
+<Project>
+  <!--
+    Central package management: every package version is declared exactly once,
+    here. Project files reference packages by name only, with no Version attribute.
+    This makes version drift across projects structurally impossible.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup Label="Messaging">
+    <PackageVersion Include="FluentValidation" Version="12.1.1" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+    <PackageVersion Include="Mediator.Abstractions" Version="3.0.2" />
+    <PackageVersion Include="Mediator.SourceGenerator" Version="3.0.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageVersion>
+  </ItemGroup>
+  <!--
+    Logging abstractions are NOT in the Microsoft.NETCore.App shared framework - only in
+    Microsoft.AspNetCore.App - so a class library that logs has to reference the package.
+    Todo.Application's pipeline behaviours and domain-event handlers log, and the alternative
+    (a FrameworkReference to Microsoft.AspNetCore.App from Application) would put the whole
+    web stack inside the layer that is supposed to know nothing about transports.
+  -->
+  <ItemGroup Label="Diagnostics">
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
+  </ItemGroup>
+  <ItemGroup Label="Persistence">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
+  </ItemGroup>
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
+    <PackageVersion Include="Respawn" Version="7.0.0" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.13.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+  <!--
+    Transitive pins. These packages are not referenced directly by any project;
+    they are pulled in by something above and pinned here to a safe version.
+    CentralPackageTransitivePinningEnabled (set above) is what makes this work.
+
+    SSH.NET: Testcontainers 4.13.0 depends on 2025.1.0, which carries a known
+    high-severity advisory (GHSA-q939-rpr3-3284). NuGet audit reports it as NU1903,
+    and TreatWarningsAsErrors turns that into a build failure. Pinned forward rather
+    than suppressed. Drop this pin once Testcontainers ships a fixed dependency.
+  -->
+  <ItemGroup Label="Transitive pins">
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,304 @@
+# The one build definition in this repository (issue 13).
+#
+# Every other workflow calls this one instead of repeating restore/build/test.
+# It is `workflow_call`-only on purpose: it has no trigger of its own, so the
+# only way to run it is for a caller to name the projects it wants built and
+# tested. Adding a new trigger (a nightly schedule, a release branch) means a
+# new caller of ten lines, not a second copy of the build.
+#
+# Callers today:
+#   .github/workflows/architecture.yml  -- fast, no container
+#   .github/workflows/pr-build.yml      -- solution build + unit + integration
+#
+# CHECK NAMES. GitHub names a reusable-workflow check
+# "<workflow> / <caller job> / <called job>". The called job below is `test`
+# and must stay `test`, because the three names it produces are what branch
+# protection is configured with:
+#
+#   architecture / architecture rules / test
+#   pr-build / build & unit tests / test
+#   pr-build / integration tests / test
+#
+# Renaming this job, or a caller's job, silently un-requires the check.
+
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      build-target:
+        description: >-
+          What to build: the solution, or a single project when the caller only
+          needs that project's graph. Building one test project instead of the
+          whole solution is what keeps the architecture check in the seconds
+          range -- it never restores Testcontainers or EF Core tooling.
+        type: string
+        default: Todo.slnx
+
+      test-projects:
+        description: >-
+          Newline-separated .csproj paths to run tests from, in order. Empty
+          means build only. Each project is run separately so its results land
+          in their own .trx and are reported under its own name.
+        type: string
+        default: ""
+
+      configuration:
+        type: string
+        default: Release
+
+      runs-on:
+        description: >-
+          Must stay x86-64. The SQL Server container the integration suite
+          starts publishes no arm64 image, so an `-arm` runner cannot host it.
+          Pinned to a specific image rather than `ubuntu-latest` so a runner
+          rollout cannot change the architecture under the test suite.
+        type: string
+        default: ubuntu-24.04
+
+      dotnet-version:
+        description: >-
+          Mirrors the SDK this repository is developed against. There is no
+          global.json to read it from; if one is ever added, switch this to
+          setup-dotnet's `global-json-file` so the two cannot drift.
+        type: string
+        default: "10.0.302"
+
+      results-name:
+        description: Artifact name for the .trx files this run produces.
+        type: string
+        default: test-results
+
+      enabled:
+        description: >-
+          When false the job still runs and still reports success, but does no
+          work. This is how a caller says "not needed for this pull request"
+          WITHOUT skipping the job.
+
+          A `paths:` trigger filter or an `if:` on the calling job would both
+          leave the check with no status at all on the pull requests it skips,
+          and a required check that never reports blocks the pull request
+          forever -- the same trap .github/workflows/protected-paths.yml
+          documents and avoids. So the skip happens inside the job, after the
+          check run already exists.
+        type: boolean
+        default: true
+
+      timeout-minutes:
+        type: number
+        default: 20
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  # Nothing here consumes package XML documentation; skipping it makes restore
+  # measurably cheaper on a cold cache.
+  NUGET_XMLDOC_MODE: skip
+  RESULTS_DIR: TestResults
+
+jobs:
+  test:
+    # Keep this job id as `test`; see the CHECK NAMES note at the top.
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+
+    steps:
+      - name: Report that this run is not needed
+        if: ${{ !inputs.enabled }}
+        run: |
+          {
+            echo '### Skipped'
+            echo
+            echo 'This pull request changes documentation only, so `${{ inputs.build-target }}`'
+            echo 'was not built and no tests were run. The check reports success so that it'
+            echo 'can stay a required check without wedging documentation pull requests.'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Check out the pull request
+        if: ${{ inputs.enabled }}
+        uses: actions/checkout@v4
+
+      - name: Set up the .NET SDK
+        if: ${{ inputs.enabled }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
+
+      # Central package management means Directory.Packages.props is the single
+      # file that pins every version, so hashing it is what actually decides
+      # whether a restored package set is still valid. The .csproj files are
+      # hashed alongside it because they decide *which* of those packages each
+      # project pulls, and Directory.Build.props because it sets the target
+      # framework the assets file is keyed on.
+      #
+      # All four inputs exist in this repository, so the key resolves to a real
+      # hash rather than the empty string hashFiles returns when nothing matches
+      # -- a key that matches no file is a cache that never hits.
+      - name: Cache restored NuGet packages
+        if: ${{ inputs.enabled }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'Directory.Build.props', 'Todo.slnx', '**/*.csproj') }}
+          # A partial hit still saves most of the download; restore only fetches
+          # what changed.
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      # Restore is its own step so that a NuGet audit failure is legible as one.
+      # TreatWarningsAsErrors turns NU19xx advisories into build errors, which is
+      # deliberate (it has already caught a real CVE -- see the transitive pin in
+      # Directory.Packages.props), and a red "Restore" step names that cause far
+      # better than a red "Build" step would.
+      - name: Restore
+        if: ${{ inputs.enabled }}
+        run: dotnet restore "${{ inputs.build-target }}"
+
+      - name: Build
+        if: ${{ inputs.enabled }}
+        run: >-
+          dotnet build "${{ inputs.build-target }}"
+          --configuration "${{ inputs.configuration }}"
+          --no-restore
+
+      # --no-build: the step above already produced the binaries, in this same
+      # configuration. Rebuilding here would double the build cost and could
+      # even test something the Build step never validated.
+      - name: Test
+        if: ${{ inputs.enabled && inputs.test-projects != '' }}
+        env:
+          TEST_PROJECTS: ${{ inputs.test-projects }}
+          CONFIGURATION: ${{ inputs.configuration }}
+        run: |
+          status=0
+          while IFS= read -r project; do
+            [ -n "$project" ] || continue
+            suite="$(basename "$project" .csproj)"
+            echo "::group::$suite"
+            dotnet test "$project" \
+              --configuration "$CONFIGURATION" \
+              --no-build \
+              --results-directory "$RESULTS_DIR" \
+              --logger "trx;LogFileName=$suite.trx" || status=1
+            echo "::endgroup::"
+          done <<EOF
+          $TEST_PROJECTS
+          EOF
+          exit $status
+
+      # Acceptance criterion: results are surfaced on the pull request rather
+      # than buried in logs. Two surfaces, no third-party action:
+      #
+      #   * a pass/fail table in the job summary, which GitHub renders on the
+      #     check itself -- one click from the pull request's Checks tab;
+      #   * an `::error` annotation per failing test, which GitHub attaches to
+      #     the pull request directly, so a failure is readable without opening
+      #     the run at all.
+      #
+      # `if: always()` because the interesting case is the one where the step
+      # above just failed.
+      - name: Report test results
+        if: ${{ always() && inputs.enabled && inputs.test-projects != '' }}
+        run: |
+          cat >"$RUNNER_TEMP/report-trx.mjs" <<'MJS'
+          import { existsSync, readdirSync, readFileSync, appendFileSync } from "node:fs";
+          import path from "node:path";
+
+          const dir = process.env.RESULTS_DIR;
+          const files = existsSync(dir)
+            ? readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".trx")).sort()
+            : [];
+
+          // VSTest writes newlines inside <Message> as the numeric references
+          // &#xD;&#xA;, so those have to be decoded too or every assertion
+          // message arrives as one unreadable line. &amp; is decoded last.
+          const decode = (s) =>
+            s
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&quot;/g, '"')
+              .replace(/&apos;/g, "'")
+              .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+              .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+              .replace(/&amp;/g, "&");
+          const attr = (xml, name) => {
+            const m = xml.match(new RegExp(`\\b${name}="([^"]*)"`));
+            return m ? decode(m[1]) : "";
+          };
+          const tag = (xml, name) => {
+            const m = xml.match(new RegExp(`<${name}>([\\s\\S]*?)</${name}>`));
+            return m ? decode(m[1]).trim() : "";
+          };
+          // Annotation payloads are single-line; GitHub decodes these escapes.
+          const ann = (s) => s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+
+          const lines = [];
+          const failures = [];
+
+          if (files.length === 0) {
+            lines.push("No test results were produced.");
+          } else {
+            lines.push("| Suite | Total | Passed | Failed | Skipped |", "| --- | ---: | ---: | ---: | ---: |");
+          }
+
+          for (const file of files) {
+            const suite = path.basename(file, path.extname(file));
+            const xml = readFileSync(path.join(dir, file), "utf8");
+            const counters = (xml.match(/<Counters\b[^>]*>/) ?? [""])[0];
+            const count = (name) => Number(attr(counters, name) || 0);
+            const total = count("total");
+            const passed = count("passed");
+            const failed = count("failed");
+            lines.push(`| ${suite} | ${total} | ${passed} | ${failed} | ${Math.max(total - passed - failed, 0)} |`);
+
+            for (const match of xml.matchAll(/<UnitTestResult\b[\s\S]*?(?:\/>|<\/UnitTestResult>)/g)) {
+              const result = match[0];
+              if (attr(result, "outcome") !== "Failed") continue;
+              failures.push({
+                suite,
+                name: attr(result, "testName"),
+                detail: [tag(result, "Message"), tag(result, "StackTrace")].filter(Boolean).join("\n\n"),
+              });
+            }
+          }
+
+          for (const f of failures) {
+            console.log(`::error title=${ann(f.suite)}::${ann(f.name)}%0A%0A${ann(f.detail)}`);
+          }
+
+          if (failures.length > 0) {
+            lines.push("", `### ${failures.length} failing test(s)`);
+            for (const f of failures.slice(0, 50)) {
+              lines.push(
+                "",
+                `<details><summary><code>${f.name.replace(/</g, "&lt;")}</code></summary>`,
+                "",
+                "```",
+                f.detail.slice(0, 4000),
+                "```",
+                "",
+                "</details>"
+              );
+            }
+          }
+
+          const summary = process.env.GITHUB_STEP_SUMMARY;
+          if (summary) appendFileSync(summary, lines.join("\n") + "\n");
+          console.log(lines.join("\n"));
+          MJS
+          node "$RUNNER_TEMP/report-trx.mjs"
+
+      # The raw .trx files, for anything the summary cannot show: timings,
+      # standard output, and re-import into a local test explorer.
+      - name: Upload test results
+        if: ${{ always() && inputs.enabled && inputs.test-projects != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.results-name }}
+          path: ${{ env.RESULTS_DIR }}
+          if-no-files-found: ignore
+          retention-days: 7

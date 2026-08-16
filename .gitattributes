@@ -1,0 +1,21 @@
+# Normalise line endings so contributors on different platforms produce
+# identical diffs. Without this, a clone on Linux or macOS rewrites every
+# line of every file on first touch.
+
+* text=auto
+
+*.cs      text diff=csharp
+*.csproj  text eol=crlf
+*.sln     text eol=crlf
+*.props   text eol=crlf
+*.targets text eol=crlf
+
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.ps1  text eol=crlf
+
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.snk  binary
