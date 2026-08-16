@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Application.Common.Persistence;
-using Todo.Application.TodoLists;
+using Todo.Application.TodoLists.Abstractions;
 using Todo.Infrastructure.Persistence;
 using Todo.Infrastructure.Persistence.Repositories;
 

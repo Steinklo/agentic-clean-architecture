@@ -22,7 +22,7 @@ Feature per aggregate, then a folder per use case. `<Feature>` is the **plural**
 | Command or query: request + handler in one file, and its validator beside it | `src/Todo.Application/<Feature>/Commands/<UseCase>/` or `Queries/<UseCase>/` |
 | DTO | `src/Todo.Application/<Feature>/Dtos/` — **not** the use-case folder |
 | Domain-event handler, and `<Aggregate>EventLog.cs` | `src/Todo.Application/<Feature>/Events/` |
-| Repository interface | `src/Todo.Application/<Feature>/I<Aggregate>Repository.cs`, at the feature root |
+| Repository interface, and any other port the feature declares | `src/Todo.Application/<Feature>/Abstractions/` |
 | Pipeline behaviour | `src/Todo.Application/Common/Behaviours/` |
 | EF configuration | `src/Todo.Infrastructure/Persistence/Configurations/<Type>Configuration.cs` |
 | Repository implementation | `src/Todo.Infrastructure/Persistence/Repositories/` |
@@ -31,6 +31,8 @@ Feature per aggregate, then a folder per use case. `<Feature>` is the **plural**
 | Aggregate tests | `tests/Todo.UnitTests/<Feature>/<Aggregate>Tests.cs` |
 
 **Create the use-case folder**; files loose in `Commands/` are wrong (`Rules.RequestsLiveInAUseCaseFolder`). DTOs are the exception because they are shared — `TodoListDto` is returned by both `CreateTodoList` and `GetTodoList`, so it belongs to neither folder (`Rules.DtosLiveInTheirFeaturesDtosNamespace`).
+
+**In `Todo.Application`, nothing sits at a feature's root** (`Rules.NothingLivesAtAFeatureRoot`). Every folder there says what it holds — `Abstractions/`, `Commands/`, `Dtos/`, `Events/`, `Queries/` — so a file beside them says nothing until it is opened. A folder holding one file is not an argument against this: `Dtos/` holds one today and has its own rule. `Todo.Application/Common/` is not a feature, and `ConfigureServices.cs` is in no feature at all; neither is examined.
 
 Namespaces follow folders and a rule holds them to it (`Rules.NamespacesFollowFolders`), which is what lets the folder rules above assert on a namespace and mean a directory. Move a file and its namespace changes with it.
 

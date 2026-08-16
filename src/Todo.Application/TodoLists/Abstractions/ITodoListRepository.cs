@@ -1,6 +1,6 @@
 using Todo.Domain.TodoLists;
 
-namespace Todo.Application.TodoLists;
+namespace Todo.Application.TodoLists.Abstractions;
 
 /// <summary>
 /// Loads and stores whole TodoList aggregates.

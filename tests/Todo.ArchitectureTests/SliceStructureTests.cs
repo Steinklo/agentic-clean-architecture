@@ -59,6 +59,23 @@ public sealed partial class SliceStructureTests
                   + "first.");
 
     /// <summary>
+    /// Rule: <see cref="Rules.NothingLivesAtAFeatureRoot"/>. Quantified over features rather than
+    /// over types, because the claim is about every feature and there is currently one — counting
+    /// its twenty-odd types would dress a single example up as a population.
+    /// </summary>
+    [Fact]
+    public void Features_HaveNothingLooseAtTheirRoot() =>
+        Rule.Over(
+            Rules.NothingLivesAtAFeatureRoot,
+            ApplicationFeatures(),
+            feature => feature.Loose.Count == 0
+                ? null
+                : $"holds {string.Join(", ", feature.Loose)} directly. Every folder in a feature "
+                  + "says what it holds - Abstractions/, Commands/, Dtos/, Events/, Queries/ - and "
+                  + "a file beside them says nothing until it is opened.",
+            feature => feature.Namespace);
+
+    /// <summary>
     /// Rule: <see cref="Rules.EndpointsDeriveFromTheirFeatureBase"/>. Implementing
     /// <c>IEndpoint</c> directly compiles and routes, and quietly restates the prefix and tag that
     /// the feature's base exists to state once.
@@ -82,6 +99,43 @@ public sealed partial class SliceStructureTests
     [GeneratedRegex(@"^Todo\.Application\.[^.]+\.(Commands|Queries)\.[^.]+$", RegexOptions.CultureInvariant)]
     private static partial Regex UseCaseFolder();
 
+    /// <summary>
+    /// Every feature in Todo.Application, carrying whatever sits directly at its root.
+    /// </summary>
+    /// <remarks>
+    /// <c>Common</c> is not a feature - it is the layer's shared folder, and its own subfolders
+    /// (<c>Behaviours/</c>, <c>Persistence/</c>) already say what they hold. Types in the assembly
+    /// root, such as <c>ConfigureServices</c>, are in no feature at all and are not examined.
+    /// </remarks>
+    private static IReadOnlyCollection<ApplicationFeature> ApplicationFeatures() =>
+        [.. Layers.Application.AuthoredTypes
+            .Where(type => !type.IsNested)
+            .Select(type => (Type: type, Namespace: type.Namespace ?? string.Empty))
+            .Where(candidate => candidate.Namespace.StartsWith(FeaturePrefix, StringComparison.Ordinal))
+            .Select(candidate => (candidate.Type, candidate.Namespace, Feature: FeatureOf(candidate.Namespace)))
+            .Where(candidate => !string.Equals(candidate.Feature, "Common", StringComparison.Ordinal))
+            .GroupBy(candidate => candidate.Feature, StringComparer.Ordinal)
+            .Select(feature => new ApplicationFeature(
+                FeaturePrefix + feature.Key,
+                [.. feature
+                    .Where(candidate => string.Equals(
+                        candidate.Namespace,
+                        FeaturePrefix + feature.Key,
+                        StringComparison.Ordinal))
+                    .Select(candidate => candidate.Type.Name)
+                    .Order(StringComparer.Ordinal)]))];
+
+    /// <summary>The first namespace segment below this is the feature name.</summary>
+    private const string FeaturePrefix = "Todo.Application.";
+
+    private static string FeatureOf(string @namespace)
+    {
+        var below = @namespace[FeaturePrefix.Length..];
+        var nextDot = below.IndexOf('.');
+
+        return nextDot < 0 ? below : below[..nextDot];
+    }
+
     /// <summary>Types named as DTOs. The name is the claim; where they live is the rule.</summary>
     private static IReadOnlyCollection<Type> Dtos() =>
         [.. Layers.Application.AuthoredTypes
@@ -96,6 +150,13 @@ public sealed partial class SliceStructureTests
     private static bool IsEndpoint(Type type) =>
         Array.Exists(type.GetInterfaces(), contract => contract.Name == "IEndpoint");
 }
+
+/// <summary>
+/// A feature in Todo.Application and the types sitting directly at its root, which should be none.
+/// </summary>
+/// <param name="Namespace">The feature's root namespace, which is also its folder.</param>
+/// <param name="Loose">Names of the types in that namespace itself rather than below it.</param>
+internal sealed record ApplicationFeature(string Namespace, IReadOnlyList<string> Loose);
 
 /// <summary>
 /// Mediator requests and their handlers, selected once and shared by the rules that examine them.

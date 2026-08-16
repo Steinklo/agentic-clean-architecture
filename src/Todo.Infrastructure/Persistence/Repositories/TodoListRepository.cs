@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Todo.Application.TodoLists;
+using Todo.Application.TodoLists.Abstractions;
 using Todo.Domain.TodoLists;
 
 namespace Todo.Infrastructure.Persistence.Repositories;
