@@ -1,7 +1,7 @@
 # Todo.Infrastructure — the map
 
 What this layer contains today. **The rules are in
-[`docs/layers/Todo.Infrastructure.md`](../../docs/layers/Todo.Infrastructure.md)** and are not
+[`docs/rules/layers/Todo.Infrastructure.md`](../../docs/rules/layers/Todo.Infrastructure.md)** and are not
 repeated here.
 
 ## Persistence
