@@ -22,7 +22,7 @@ Each folder holds the request, its handler in the same file, and its validator b
 |---|---|
 | DTOs | `TodoLists/Dtos/` — `TodoListDto`, `TodoItemDto` |
 | Event handlers | `TodoLists/Events/` — one per domain event, plus `TodoListEventLog` (ids 2000–2002) |
-| Repository contract | `TodoLists/ITodoListRepository.cs` |
+| Repository contract | `TodoLists/Abstractions/ITodoListRepository.cs` |
 
 ## Common
 
