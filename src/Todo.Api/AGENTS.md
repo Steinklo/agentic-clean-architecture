@@ -1,7 +1,7 @@
 # Todo.Api — the map
 
 What this layer contains today. **The rules are in
-[`docs/layers/Todo.Api.md`](../../docs/layers/Todo.Api.md)** and are not repeated here.
+[`docs/rules/layers/Todo.Api.md`](../../docs/rules/layers/Todo.Api.md)** and are not repeated here.
 
 ## Routes
 

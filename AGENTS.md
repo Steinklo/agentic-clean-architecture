@@ -7,11 +7,11 @@ solution as it is right now, never as it should be.
 
 | | |
 |---|---|
-| [`docs/architecture.md`](docs/architecture.md) | the dependency rule, the enforced rules and their coverage model, the two testing seams, who enforces what |
-| [`docs/conventions.md`](docs/conventions.md) | the stack, the commands, naming and code shape |
-| [`docs/gotchas.md`](docs/gotchas.md) | the traps that already cost someone real time |
-| [`docs/layers/<project>.md`](docs/layers/) | what belongs in each layer and what must not |
-| [`docs/DOC-RULES.md`](docs/DOC-RULES.md) | how this file and its siblings are written |
+| [`docs/rules/architecture.md`](docs/rules/architecture.md) | the dependency rule, the enforced rules and their coverage model, the two testing seams, who enforces what |
+| [`docs/rules/conventions.md`](docs/rules/conventions.md) | the stack, the commands, naming and code shape |
+| [`docs/rules/gotchas.md`](docs/rules/gotchas.md) | the traps that already cost someone real time |
+| [`docs/rules/layers/<project>.md`](docs/rules/layers/) | what belongs in each layer and what must not |
+| [`docs/rules/DOC-RULES.md`](docs/rules/DOC-RULES.md) | how this file and its siblings are written |
 
 Three skills carry the procedures: **`new-feature`** (any new type, slice or endpoint — it owns
 where files go and in what order), **`add-migration`** (anything touching the schema),
