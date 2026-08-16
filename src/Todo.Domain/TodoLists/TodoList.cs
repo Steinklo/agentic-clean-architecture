@@ -15,6 +15,10 @@ public sealed class TodoList : AggregateRoot<Guid>
 {
     private readonly List<TodoItem> _items = [];
 
+    // Not mapped and not state: a cached view over _items, built on first read. EF writes the
+    // backing field directly and never touches this, and a view stays live as _items changes.
+    private IReadOnlyCollection<TodoItem>? _itemsView;
+
     private TodoList(Guid id, TodoListTitle title)
         : base(id) => Title = title;
 
@@ -31,7 +35,12 @@ public sealed class TodoList : AggregateRoot<Guid>
     /// The TodoItems in this TodoList. Read-only: items are added and completed through the
     /// aggregate root, never on the collection. EF Core writes the backing field directly.
     /// </summary>
-    public IReadOnlyCollection<TodoItem> Items => _items.AsReadOnly();
+    /// <remarks>
+    /// <c>AsReadOnly()</c> allocates a fresh wrapper on every call, and this is read on every
+    /// projection of the aggregate. The wrapper is a view over <c>_items</c>, not a copy, so one
+    /// created once still reflects every later add — there is nothing to invalidate.
+    /// </remarks>
+    public IReadOnlyCollection<TodoItem> Items => _itemsView ??= _items.AsReadOnly();
 
     /// <summary>
     /// Creates a TodoList, returning a validation failure rather than throwing on invalid input.
