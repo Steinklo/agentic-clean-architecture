@@ -32,6 +32,16 @@ public sealed record DomainError
     /// <summary>The request conflicts with the current state of the aggregate.</summary>
     public static DomainError Conflict(string code, string message) => new(code, message, DomainErrorType.Conflict);
 
+    /// <summary>
+    /// The operation is legitimate and this application cannot carry it out, because the capability
+    /// it needs has not been built. An adapter with nothing behind it returns this rather than
+    /// throwing <see cref="NotImplementedException"/> - a thrown one is an unhandled exception and
+    /// reaches the caller as a 500, which says the application broke rather than that it never
+    /// offered this.
+    /// </summary>
+    public static DomainError NotImplemented(string code, string message) =>
+        new(code, message, DomainErrorType.NotImplemented);
+
     /// <summary>Anything else that went wrong.</summary>
     public static DomainError Failure(string code, string message) => new(code, message, DomainErrorType.Failure);
 

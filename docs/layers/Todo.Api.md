@@ -21,9 +21,15 @@ adding an endpoint is adding a file and there is no route list to keep in step. 
   feature ends up half under one route.
 - No business logic, no validation rules, no direct database access.
 - **No per-endpoint status mapping.** One translation, driven by `DomainErrorType`: `Validation` →
-  400, `NotFound` → 404, `Conflict` → 409, `Failure` → 500. An endpoint picks only the shape of
-  success and names a status code nowhere but its `Produces`/`ProducesProblem` metadata. Copying
-  that ladder into an endpoint is the specific defect this template exists to avoid.
+  400, `NotFound` → 404, `Conflict` → 409, `NotImplemented` → 501, `Failure` → 500. An endpoint
+  picks only the shape of success and names a status code nowhere but its
+  `Produces`/`ProducesProblem` metadata. Copying that ladder into an endpoint is the specific defect
+  this template exists to avoid.
+- **Adding a category to that ladder is not a compile error, and cannot be made into one.** The
+  switch ends in a discard; removing it makes the switch itself fail CS8524 ("not exhaustive
+  involving an unnamed enum value") because a C# enum can hold a value no member names, and
+  `TreatWarningsAsErrors` stops the build. So a new `DomainErrorType` without an arm reaches callers
+  as a 500 with nothing said. Add its arm in the same change.
 
 ## Configuration
 

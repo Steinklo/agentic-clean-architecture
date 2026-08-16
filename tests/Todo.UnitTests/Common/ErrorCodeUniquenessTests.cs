@@ -73,9 +73,17 @@ public partial class ErrorCodeUniquenessTests
     /// Matches a call to one of <see cref="Todo.Domain.Common.DomainError"/>'s category factories whose
     /// first argument is a string literal - the code. The literal may sit on the following line, so
     /// whitespace between the parenthesis and the quote is allowed.
+    /// <para>
+    /// <b>Every category has to be listed here.</b> A factory missing from this alternation is a
+    /// factory whose codes are never scanned, and the test still passes - so adding a
+    /// <c>DomainErrorType</c> means adding it below. <c>NotImplemented</c> raises no code in
+    /// Todo.Domain today, only in the reality gateway out in Infrastructure, which this scan does
+    /// not read; it is listed so that the first domain guard to use it is covered on the day it is
+    /// written rather than whenever someone remembers.
+    /// </para>
     /// </summary>
     [GeneratedRegex(
-        """DomainError\.(?:Validation|NotFound|Conflict|Failure)\s*\(\s*"(?<code>[^"]+)"\s*,""",
+        """DomainError\.(?:Validation|NotFound|Conflict|NotImplemented|Failure)\s*\(\s*"(?<code>[^"]+)"\s*,""",
         RegexOptions.None,
         matchTimeoutMilliseconds: 5000)]
     private static partial Regex ErrorFactoryCall();
