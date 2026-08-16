@@ -327,6 +327,45 @@ jobs:
       # ANTHROPIC_API_KEY is the alternative to the subscription token: replace
       # `claude_code_oauth_token` with `anthropic_api_key` and the secret with
       # ANTHROPIC_API_KEY. They are alternatives; setting both is not a fallback.
+      # ------------------------------------------------------- changed files --
+      # The agent has no shell, so it cannot run git. It was still being told to
+      # "compare the working tree against the merge base", which it can only do
+      # by reading the tree file by file -- a cost that scales with the size of
+      # the pull request and has nothing to do with the size of the map it ends
+      # up writing. On PR #7 that took it past its turn ceiling and the run was
+      # failed after it had already succeeded.
+      #
+      # So git runs here, where git belongs, and the agent reads the answer.
+      # This does not weaken "the workflow owns git": the agent still cannot
+      # invoke it, and a file it can only read cannot commit anything.
+      #
+      # It is written to RUNNER_TEMP, not into the repository. Anything left in
+      # the working tree would be seen by the discard step below, classified as
+      # human-owned, and thrown away -- and if it ever were not, it would be a
+      # generated file committed onto the branch.
+      - name: Work out what the pull request changed
+        id: changes
+        if: ${{ steps.loop.outputs.regenerate == 'true' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          manifest="${RUNNER_TEMP}/changed-files.txt"
+          base="$(git merge-base "${BASE_SHA}" HEAD)"
+
+          {
+            echo "# Files changed by this pull request, against merge base ${base}."
+            echo "# Status: A added, M modified, D deleted, R renamed."
+            echo
+            git diff --name-status "${base}"...HEAD
+          } > "${manifest}"
+
+          echo "manifest=${manifest}" >> "${GITHUB_OUTPUT}"
+
+          echo "Changed files handed to the agent:"
+          cat "${manifest}"
+
       - name: Regenerate the documentation
         if: ${{ steps.loop.outputs.regenerate == 'true' }}
         uses: anthropics/claude-code-action@v1
@@ -336,7 +375,18 @@ jobs:
           github_token: ${{ steps.app-token.outputs.token }}
           # No Bash: everything the agent needs is reading and writing files, and
           # withholding the shell is what keeps "the workflow owns git" true.
-          claude_args: '--allowedTools "Read,Glob,Grep,Edit,Write" --max-turns 40'
+          #
+          # 80 turns, not 40. On PR #7 - a whole new feature, 18 files over four
+          # layers - the agent finished and reported success at 60 turns, and the
+          # run was failed afterwards for exceeding 40: the ceiling discarded
+          # completed work rather than stopping a confused run.
+          #
+          # The step above should make that cheaper, since the agent is handed the
+          # change set instead of reconstructing it. The ceiling stays raised
+          # anyway: it exists to stop a confused run, and 40 was tight enough to
+          # catch a working one. pr-review already sits at 60 and is the smaller
+          # job of the two.
+          claude_args: '--allowedTools "Read,Glob,Grep,Edit,Write" --max-turns 80'
           prompt: |
             You are the documentation agent for this repository, running on pull
             request #${{ github.event.pull_request.number }}.
@@ -358,9 +408,12 @@ jobs:
 
             Your job on this run:
 
-            1. Work out what this pull request changed, by comparing the working
-               tree against the merge base
-               `${{ github.event.pull_request.base.sha }}`.
+            1. Read `${{ steps.changes.outputs.manifest }}`. It lists every file
+               this pull request changed, with its status, already worked out
+               against the merge base. That is your starting point: you have no
+               shell and cannot diff, so do not go looking for the change set by
+               reading the tree. Read the listed source files themselves to see
+               what they now contain.
             2. Regenerate every map whose sources this pull request touched, from
                the source tree itself and not from the map's own previous text.
                A map is an index: what exists, where it lives, in a table where a
