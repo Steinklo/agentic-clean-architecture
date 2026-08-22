@@ -2,9 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Application.Common.Persistence;
+using Todo.Application.Manifestations.Abstractions;
 using Todo.Application.TodoLists.Abstractions;
 using Todo.Infrastructure.Persistence;
 using Todo.Infrastructure.Persistence.Repositories;
+using Todo.Infrastructure.Reality;
 
 namespace Todo.Infrastructure;
 
@@ -57,9 +59,15 @@ public static class ConfigureServices
         services.AddScoped<IDatabaseConnectivity, DatabaseConnectivity>();
 
         // One repository per aggregate root, plus the single unit of work they all commit through.
-        // Both contracts are declared in Application; only these lines know an EF Core type exists.
+        // Every contract is declared in Application; only these lines know an EF Core type exists.
         services.AddScoped<ITodoListRepository, TodoListRepository>();
+        services.AddScoped<IManifestationRepository, ManifestationRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        // Ports that are not repositories are registered here too, and nothing discovers them
+        // either: Rules.RepositoriesAreRegistered only looks at I...Repository, so the first thing
+        // to notice a missing line below is the integration test that exercises the route.
+        services.AddScoped<IRealityGateway, RealityGateway>();
 
         return services;
     }

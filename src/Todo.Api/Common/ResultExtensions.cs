@@ -93,6 +93,12 @@ internal static class ResultExtensions
         DomainErrorType.NotFound => StatusCodes.Status404NotFound,
         DomainErrorType.Conflict => StatusCodes.Status409Conflict,
         DomainErrorType.Failure => StatusCodes.Status500InternalServerError,
+
+        // 501 and not 500: the request was understood and this application has no implementation
+        // for it, so nothing went wrong and there is nothing to retry. Reusing Failure was the
+        // alternative and was rejected - it reports a defect where there is none, and the
+        // distinction disappears in any metric that counts 5xx.
+        DomainErrorType.NotImplemented => StatusCodes.Status501NotImplemented,
         _ => StatusCodes.Status500InternalServerError,
     };
 }

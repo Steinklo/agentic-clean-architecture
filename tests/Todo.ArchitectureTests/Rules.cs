@@ -181,12 +181,14 @@ internal static class Rules
         new("Every IRequest has an AbstractValidator", RuleCoverage.Live, MeaningfulAt: 3);
 
     /// <summary>
-    /// Live over 3 aggregate roots' worth of entities. <c>UnitOfWork</c> enumerates
+    /// Live: promoted by the Manifestations slice, which gave the solution its second aggregate
+    /// root. Two independently written roots are what makes this a convention rather than a
+    /// description of <c>TodoList</c>. <c>UnitOfWork</c> enumerates
     /// <c>ChangeTracker.Entries&lt;AggregateRoot&lt;Guid&gt;&gt;()</c>, so a root keyed on
     /// anything else compiles, saves, and never dispatches a domain event.
     /// </summary>
     public static ArchitectureRule AggregateRootsAreKeyedOnGuid { get; } =
-        new("Every aggregate root derives from AggregateRoot<Guid>", RuleCoverage.Thin, MeaningfulAt: 2);
+        new("Every aggregate root derives from AggregateRoot<Guid>", RuleCoverage.Live, MeaningfulAt: 2);
 
     // ---------------------------------------------------------------------------------------
     // The shape of a vertical slice. These were the new-feature skill's rules and nothing
@@ -215,13 +217,14 @@ internal static class Rules
         new("Every DTO lives in its feature's Dtos namespace", RuleCoverage.Live, MeaningfulAt: 2);
 
     /// <summary>
-    /// Thin: one feature exists, so this passes by construction rather than by evidence — the
-    /// folders it demands were laid out in the same change. What it fixes is a feature root that
-    /// lists folders <em>and</em> a loose file, where the folders say what they hold and the file
-    /// says nothing, so the reader has to open it to find out.
+    /// Live: promoted by the Manifestations slice, the second feature in Todo.Application — so the
+    /// rule now compares two feature layouts rather than restating the one it was written beside.
+    /// What it fixes is a feature root that lists folders <em>and</em> a loose file, where the
+    /// folders say what they hold and the file says nothing, so the reader has to open it to find
+    /// out.
     /// </summary>
     public static ArchitectureRule NothingLivesAtAFeatureRoot { get; } =
-        new("No type lives directly at a feature's root in Todo.Application", RuleCoverage.Thin, MeaningfulAt: 2);
+        new("No type lives directly at a feature's root in Todo.Application", RuleCoverage.Live, MeaningfulAt: 2);
 
     /// <summary>
     /// Live over 5 endpoints. The route prefix and OpenAPI tag are stated once on the feature's
@@ -231,12 +234,19 @@ internal static class Rules
         new("Every endpoint derives from its feature's endpoint base", RuleCoverage.Live, MeaningfulAt: 3);
 
     /// <summary>
-    /// Thin: one repository exists. This is the one wiring step nothing discovers — handlers,
-    /// validators, configurations and endpoints are all found by scanning, so a missing
-    /// <c>AddScoped</c> builds green and throws at the first request instead.
+    /// Live: promoted by the Manifestations slice, which added the second repository — and with it
+    /// the first chance for this rule to catch one registration being present while another is
+    /// missing. This is the one wiring step nothing discovers: handlers, validators, configurations
+    /// and endpoints are all found by scanning, so a missing <c>AddScoped</c> builds green and
+    /// throws at the first request instead.
+    /// <para>
+    /// It selects on <c>I…Repository</c>, so a port that is not a repository — <c>IRealityGateway</c>
+    /// is the first — is registered by hand and guarded by nothing but the integration test that
+    /// exercises its route.
+    /// </para>
     /// </summary>
     public static ArchitectureRule RepositoriesAreRegistered { get; } =
-        new("Every repository interface is registered in Infrastructure", RuleCoverage.Thin, MeaningfulAt: 2);
+        new("Every repository interface is registered in Infrastructure", RuleCoverage.Live, MeaningfulAt: 2);
 
     // ---------------------------------------------------------------------------------------
     // The mapping. Every one of these is a gotcha AGENTS.md records because it already cost
@@ -253,12 +263,13 @@ internal static class Rules
         new("Every mapped entity key is ValueGeneratedNever", RuleCoverage.Live, MeaningfulAt: 2);
 
     /// <summary>
-    /// Thin: one aggregate root is mapped. Without <c>Ignore(x =&gt; x.DomainEvents)</c> EF's
-    /// relationship convention maps the collection as a navigation, inventing a DomainEvents
-    /// table with a foreign key — visible only when someone reads the next migration.
+    /// Live: promoted by the Manifestations slice, whose configuration is the second one that had
+    /// to remember this. Without <c>Ignore(x =&gt; x.DomainEvents)</c> EF's relationship convention
+    /// maps the collection as a navigation, inventing a DomainEvents table with a foreign key —
+    /// visible only when someone reads the next migration.
     /// </summary>
     public static ArchitectureRule DomainEventsAreNeverMapped { get; } =
-        new("No aggregate root maps its DomainEvents collection", RuleCoverage.Thin, MeaningfulAt: 2);
+        new("No aggregate root maps its DomainEvents collection", RuleCoverage.Live, MeaningfulAt: 2);
 
     /// <summary>
     /// Live over 2 value-object properties. A value object needs a converter <em>and</em> an
