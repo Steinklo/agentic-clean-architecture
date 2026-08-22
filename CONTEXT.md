@@ -19,3 +19,17 @@ _Avoid_: Done, Finish, Check off, Close
 **Archive**:
 To retire a TodoList from active use. A TodoList cannot be archived while any of its TodoItems is incomplete — this is the invariant that justifies the aggregate boundary.
 _Avoid_: Delete, Close, Remove, Deactivate
+
+**Manifest**:
+To make a TodoItem true in the physical world.
+_Avoid_: Create, Do, Execute, Perform, Realize
+
+_Realize_ is on that list as a **synonym for the act**, and is nevertheless the name of one outcome: a Manifestation that succeeded is `Realized`. The two are different words in this language — you manifest a TodoItem, and the Manifestation is then realized or failed. Never say "realize a TodoItem".
+
+**Manifestation**:
+The second aggregate root. A record of one request to manifest a TodoItem, referring to that TodoItem by id rather than by navigation, and settling once as Realized or Failed. Terminal states are final.
+_Avoid_: Attempt, Job, Task, Request
+
+**Fulfil**:
+To attempt a Manifestation against the physical world and record how it ended. Distinct from **Manifest**, which only records that the attempt was asked for.
+_Avoid_: Run, Process, Apply, Complete

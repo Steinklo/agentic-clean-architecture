@@ -16,5 +16,17 @@ public enum DomainErrorType
     Conflict,
 
     /// <summary>Anything else that went wrong.</summary>
-    Failure
+    Failure,
+
+    /// <summary>
+    /// The request is understood and legitimate, and this system has no implementation for it.
+    /// Distinct from <see cref="Failure"/>: nothing went wrong, so the caller has nothing to retry
+    /// and no reason to suspect a defect. Reserved for an adapter that honestly reports it cannot
+    /// do the work, never for one that failed while trying.
+    /// <para>
+    /// Declared last so that adding it renumbers nothing. Members are appended here, never
+    /// inserted, even though nothing persists or serialises the underlying value today.
+    /// </para>
+    /// </summary>
+    NotImplemented
 }
