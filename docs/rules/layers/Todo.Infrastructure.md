@@ -23,6 +23,15 @@ aggregate's repository is registered by hand.
   changes none.
 - **Every repository interface is registered here** — `Rules.RepositoriesAreRegistered`. It is the
   one wiring step nothing discovers: the build stays green and the first request throws.
+- **So is every other port Application declares**, and that one has no rule behind it:
+  `Rules.RepositoriesAreRegistered` selects on `I…Repository`, so a gateway or any other adapter
+  contract is registered by hand and guarded only by the integration test that exercises its route.
+  Write that test.
+- **An adapter reports failure by returning a failed `Result`, never by throwing.** A thrown
+  exception is caught by `UnhandledExceptionBehaviour` and becomes a 500, telling the caller a
+  defect occurred when the honest answer may be that the work is simply not implemented.
+  `Reality/RealityGateway.cs` is the worked example, and the reason
+  `DomainErrorType.NotImplemented` exists.
 
 ## Mapping
 

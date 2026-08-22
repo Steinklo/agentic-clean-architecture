@@ -17,12 +17,24 @@ What this layer contains today. **The rules are in
 The invariant the aggregate boundary exists for: `TodoList.Archive()` refuses while any
 `TodoItem` is incomplete.
 
+**Manifestations** (`Manifestations/`)
+
+| | |
+|---|---|
+| Aggregate root | `Manifestation` — records a request to manifest a TodoItem, refers to it by id only |
+| Enum | `Enums/ManifestationState` — `Requested`, `Realized`, `Failed` |
+| Events | `Events/ManifestationRequestedEvent`, `ManifestationRealizedEvent`, `ManifestationFailedEvent` |
+
+The invariant the aggregate boundary exists for: a `Manifestation` that has reached `Realized` or
+`Failed` never leaves it.
+
 ## Common
 
-`Common/` — `Result` and `Result<T>`, `DomainError`, `DomainErrorType`, and the `Entity<TId>`,
-`AggregateRoot<TId>`, `ValueObject` and `DomainEvent` base types.
+`Common/` — `Result` and `Result<T>`, `DomainError`, `DomainErrorType` (`Validation`, `NotFound`,
+`Conflict`, `Failure`, `NotImplemented`), and the `Entity<TId>`, `AggregateRoot<TId>`,
+`ValueObject` and `DomainEvent` base types.
 
 ## Tests
 
-`tests/Todo.UnitTests/TodoLists/TodoListTests.cs`, plus
-`tests/Todo.UnitTests/Common/ErrorCodeUniquenessTests.cs`, which scans this project's source.
+`tests/Todo.UnitTests/TodoLists/TodoListTests.cs`, `tests/Todo.UnitTests/Manifestations/ManifestationTests.cs`,
+plus `tests/Todo.UnitTests/Common/ErrorCodeUniquenessTests.cs`, which scans this project's source.

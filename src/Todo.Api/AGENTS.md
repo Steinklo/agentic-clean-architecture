@@ -16,6 +16,16 @@ OpenAPI tag `TodoLists`.
 | `POST` | `/api/todo-lists/{todoListId:guid}/items/{todoItemId:guid}/complete` | `CompleteTodoItemEndpoint` |
 | `POST` | `/api/todo-lists/{todoListId:guid}/archive` | `ArchiveTodoListEndpoint` |
 
+**Manifestations** — base classes `Endpoints/Manifestations/ManifestationEndpoint.cs`, prefix
+`/api/manifestations`, tag `Manifestations`, and (for the one route that is a sub-resource of a
+TodoItem) `Endpoints/TodoLists/TodoListEndpoint.cs`.
+
+| Method | Route | Endpoint |
+|---|---|---|
+| `POST` | `/api/todo-lists/{todoListId:guid}/items/{todoItemId:guid}/manifest` | `RequestManifestationEndpoint` |
+| `GET` | `/api/manifestations/{manifestationId:guid}` | `GetManifestationEndpoint` |
+| `POST` | `/api/manifestations/{manifestationId:guid}/fulfil` | `FulfilManifestationEndpoint` |
+
 `/health` is mapped in `Program.cs` and reports real database connectivity.
 
 ## Plumbing
@@ -29,4 +39,5 @@ OpenAPI tag `TodoLists`.
 
 ## Tests
 
-`tests/Todo.IntegrationTests/` — `TodoLists/` per feature, plus `HealthEndpointTests`.
+`tests/Todo.IntegrationTests/` — `TodoLists/` and `Manifestations/` per feature, plus
+`HealthEndpointTests`.
