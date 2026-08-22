@@ -19,6 +19,13 @@ So this repository ships a harness with exactly two jobs:
 
 Neither is a convention anyone has to remember. Both are checks that fail.
 
+**Why this exists.** I wanted a clean architecture repository that actually stays clean — guarded
+against anything that breaks its own rules, indefinitely, not just on the day it's written. So it
+shows agents how to build a feature the right way from the start, and enforces that shape on every
+pull request, for anyone's commit, agent or human. One result: an agent can be trusted with real,
+lasting ownership of one thing — the map of what the app currently is — because that's the one part
+safe to hand over without ever touching the rules underneath it.
+
 ---
 
 ## ⚙️ How it works
@@ -111,6 +118,17 @@ A `TodoList` owns `TodoItem`s and refuses to be archived while any of them is in
 the whole domain: one real cross-item invariant, so the aggregate boundary earns its keep.
 
 It's here to demonstrate the patterns, not to be a product. Rename it and it's yours.
+
+**Two real pull requests, not a description of what would happen:**
+
+| | Issue | Pull request | What it shows |
+|---|---|---|---|
+| ✅ | [#6](https://github.com/Steinklo/agentic-clean-architecture/issues/6) | [#11](https://github.com/Steinklo/agentic-clean-architecture/pull/11) | A real feature, built inside the rules. Every check is green, and the documentation agent's own commit regenerates `AGENTS.md` on top of the human one — the map catching up to the code, automatically. |
+| ❌ | [#14](https://github.com/Steinklo/agentic-clean-architecture/issues/14) | [#15](https://github.com/Steinklo/agentic-clean-architecture/pull/15) | The same shape, built the wrong way on purpose — an ORM type where it doesn't belong, a request in the wrong folder, a layer skipped entirely. `architecture` fails for exactly those reasons and stays that way; every other check still passes. Left open as a permanent example. |
+
+Both pull requests have the same shape: one commit from a human, one from the agent. The
+difference is which side of the rules the human's commit landed on — the agent's job never changes
+either way.
 
 </details>
 
