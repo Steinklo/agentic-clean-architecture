@@ -126,9 +126,9 @@ It's here to demonstrate the patterns, not to be a product. Rename it and it's y
 | ✅ | [#6](https://github.com/Steinklo/agentic-clean-architecture/issues/6) | [#11](https://github.com/Steinklo/agentic-clean-architecture/pull/11) | A real feature, built inside the rules. Every check is green, and the documentation agent's own commit regenerates `AGENTS.md` on top of the human one — the map catching up to the code, automatically. |
 | ❌ | [#14](https://github.com/Steinklo/agentic-clean-architecture/issues/14) | [#15](https://github.com/Steinklo/agentic-clean-architecture/pull/15) | The same shape, built the wrong way on purpose — an ORM type where it doesn't belong, a request in the wrong folder, a layer skipped entirely. `architecture` fails for exactly those reasons and stays that way; every other check still passes. Left open as a permanent example. |
 
-Both pull requests have the same shape: one commit from a human, one from the agent. The
-difference is which side of the rules the human's commit landed on — the agent's job never changes
-either way.
+Both pull requests start from exactly one human commit. What the agent adds on top differs — #11's
+501 decision needed a proposed record alongside the regenerated map, #15's didn't — because that's
+what the agent's job actually is: react to what's there, not add a fixed number of commits.
 
 </details>
 
