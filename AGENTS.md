@@ -21,8 +21,8 @@ Each layer under `src/` carries its own map. Read the one for the layer you are 
 
 ## Features
 
-**TodoLists** — the only feature. A `TodoList` owns `TodoItem`s and refuses to be archived while
-any of them is incomplete.
+**TodoLists** — a `TodoList` owns `TodoItem`s and refuses to be archived while any of them is
+incomplete.
 
 | | |
 |---|---|
@@ -31,6 +31,19 @@ any of them is incomplete.
 | Persistence | `src/Todo.Infrastructure/Persistence/` — `TodoListConfiguration`, `TodoItemConfiguration`, `TodoListRepository` |
 | HTTP | `src/Todo.Api/Endpoints/TodoLists/` — one endpoint per use case, under `/api/todo-lists` |
 | Tests | `tests/Todo.IntegrationTests/TodoLists/` and `tests/Todo.UnitTests/TodoLists/` |
+
+**Manifestations** — a `Manifestation` records a request to make a `TodoItem` true in the physical
+world, and settles once as Realized or Failed. `IRealityGateway` is the port to that world, and its
+only adapter declines every request.
+
+| | |
+|---|---|
+| Aggregate | `src/Todo.Domain/Manifestations/` — `Manifestation`, enum `ManifestationState`, events for requested / realized / failed |
+| Use cases | `src/Todo.Application/Manifestations/` — commands `RequestManifestation`, `FulfilManifestation`; query `GetManifestation` |
+| Persistence | `src/Todo.Infrastructure/Persistence/` — `ManifestationConfiguration`, `ManifestationRepository` |
+| Reality | `src/Todo.Infrastructure/Reality/RealityGateway.cs` — the only implementation of `IRealityGateway` |
+| HTTP | `src/Todo.Api/Endpoints/Manifestations/` — `RequestManifestationEndpoint` under `/api/todo-lists`, `GetManifestationEndpoint` and `FulfilManifestationEndpoint` under `/api/manifestations` |
+| Tests | `tests/Todo.IntegrationTests/Manifestations/` and `tests/Todo.UnitTests/Manifestations/` |
 
 ## Entry points
 
