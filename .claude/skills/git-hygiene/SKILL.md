@@ -1,13 +1,14 @@
 ---
 name: git-hygiene
-description: Git rules for this repository - the type vocabulary for branches, commits and PR titles, how issues are linked, the protected-path check to run before staging, the merge strategy and why squash is forbidden here, and how to work alongside the documentation agent's [bot] commits. Use before staging or committing, when naming a branch, when opening a PR, or when [bot] commits appear on your branch.
+description: Git rules for this repository - the type vocabulary for branches, commits and PR titles, how issues are linked, the protected-path check to run before staging, why squash-to-land is safe here and what actually is not, and how to work alongside the documentation agent's [bot] commits. Use before staging or committing, when naming a branch, when opening a PR, or when [bot] commits appear on your branch.
 ---
 
 # Git hygiene
 
 Two of these rules are ordinary practice and stated briefly. Two are specific to this repository and
-are the reason this file exists: **squash-merge is forbidden**, and **the documentation agent commits
-to your branch**. Every command runs from the repository root.
+are the reason this file exists: **squash-merge is the only way in, and it is safe** — the actual
+danger is rewriting your own commits after **the documentation agent commits to your branch**. Every
+command runs from the repository root.
 
 ## Type vocabulary
 
@@ -99,22 +100,23 @@ There is deliberately **no local hook** mirroring this, so an edit to an agent-o
 locally and fails on the pull request. Never set `PROTECTED_PATHS_BYPASS` to get past it; that
 variable belongs to the documentation agent's own workflow.
 
-## 2. Merge strategy — merge commit, never squash
+## 2. Merge strategy — squash to land
 
-**Squash-merge is forbidden here**, and this is not a style preference.
+**Squash is the only merge method this repository allows.** A branch ruleset on `main` sets
+`allowed_merge_methods: ["squash"]` — there is no choice to make here, and that is fine rather than
+a compromise to work around.
 
-The documentation agent pushes `[bot]`-authored commits onto your branch — `AGENTS.md` maps, and
-decision records under `docs/adr/`. `.github/scripts/protected-paths-guard.sh` exempts them **by
-author identity**. Squashing collapses them into one commit authored by *you*, so you become the
-author of agent-owned files and `protected-paths` fails the pull request.
+It is fine because every check — `protected-paths` included — triggers on `pull_request` only
+(see the `on:` block of any workflow under `.github/workflows/`), so it inspects the commits on
+your branch *before* merge and never runs again after. By the time a squash-merge collapses a pull
+request into the one commit that lands on `main`, everything in it already passed against those
+exact commits. The squash itself is not re-checked, and whoever that final commit is authored as
+does not matter to anything.
 
-So: **merge or rebase-merge**, never squash. One commit that is both yours and carries the agent's
-files cannot exist.
-
-**A record commit alone would survive a squash, and that is a coincidence rather than a licence.**
-`docs/adr/**` is shared, so you authoring one is legal — a pull request whose only bot commit is a
-proposed record would squash green. The moment it also carries a map, which is the ordinary case,
-it fails. Do not learn the exception.
+What actually matters is what sections 3 and 4 below describe: never rewrite your branch's own
+commits once the documentation agent has pushed to it, while the pull request is still open. That
+is a live danger, checked again on your very next push. The squash that lands the pull request,
+once every check is already green, is not.
 
 ## 3. The documentation agent's commits on your branch
 
