@@ -54,6 +54,13 @@ public static class ConfigureServices
                 connectionString,
                 sqlServer => sqlServer.MigrationsAssembly(typeof(TodoDbContext).Assembly.FullName)));
 
+        // AddDbContext registers TodoDbContext, not the base DbContext it derives from. This exists
+        // for exactly one caller today: CountIncompleteItemsHandler, which asks for the base type
+        // precisely because Application cannot see TodoDbContext without a project reference it is
+        // not allowed to have. Without this, that handler compiles, passes every rule but the ORM
+        // one it exists to break, and throws at resolution time for a reason nobody intended.
+        services.AddScoped<DbContext>(provider => provider.GetRequiredService<TodoDbContext>());
+
         services.AddScoped<IDatabaseConnectivity, DatabaseConnectivity>();
 
         // One repository per aggregate root, plus the single unit of work they all commit through.
