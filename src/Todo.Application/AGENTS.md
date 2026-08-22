@@ -15,6 +15,7 @@ here.
 | `CompleteTodoItemCommand` | `Commands/CompleteTodoItem/` | `Result` |
 | `ArchiveTodoListCommand` | `Commands/ArchiveTodoList/` | `Result` |
 | `GetTodoListQuery` | `Queries/GetTodoList/` | `Result<TodoListDto>` |
+| `CountIncompleteItemsQuery` | `TodoLists/CountIncompleteItems.cs` — loose at the feature root, not a use-case folder | `Result<int>` |
 
 Each folder holds the request, its handler in the same file, and its validator beside them.
 
