@@ -43,7 +43,7 @@ function resolveTarget(filePath) {
 
 function isMigrationFile(filePath) {
   if (!filePath.toLowerCase().endsWith(".cs")) return false;
-  return filePath.split(/[\/]/).includes("Migrations");
+  return filePath.split(/[\\/]/).includes("Migrations");
 }
 
 if (process.env[BYPASS] === "1") process.exit(0);

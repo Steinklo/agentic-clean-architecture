@@ -44,7 +44,8 @@ internal static class Layers
     /// <summary>Every layer, innermost first.</summary>
     public static IReadOnlyList<Layer> All { get; } = [Domain, Application, Infrastructure, Api];
 
-    private static string SolutionRoot => _solutionRoot ??= FindSolutionRoot();
+    /// <summary>The directory containing <c>Todo.slnx</c>, resolved once and cached.</summary>
+    public static string SolutionRoot => _solutionRoot ??= FindSolutionRoot();
 
     private static Layer For(string projectName) =>
         new(

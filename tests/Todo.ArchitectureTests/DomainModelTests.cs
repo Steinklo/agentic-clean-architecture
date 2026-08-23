@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Todo.Domain.Common;
 
 namespace Todo.ArchitectureTests;
@@ -45,6 +46,32 @@ public sealed class DomainModelTests
                 ? null
                 : $"lives in a ValueObjects namespace but does not derive from {typeof(ValueObject).FullName}, "
                   + "so it compares by reference instead of by value.");
+
+    /// <summary>
+    /// Rule: <see cref="Rules.DomainHasNoInternalsVisibleTo"/>. The aggregate seam tests
+    /// (<c>tests/Todo.UnitTests</c>) construct an aggregate and read its <c>Result</c>, never an
+    /// internal member directly — an <c>InternalsVisibleTo</c> would mean that stopped being true
+    /// somewhere without anyone deciding it should.
+    /// </summary>
+    [Fact]
+    public void Domain_Assembly_GrantsNoInternalsVisibleToAccess() =>
+        Rule.Over(
+            Rules.DomainHasNoInternalsVisibleTo,
+            [Layers.Domain],
+            layer =>
+            {
+                var grants = layer.Assembly
+                    .GetCustomAttributes<InternalsVisibleToAttribute>()
+                    .Select(attribute => attribute.AssemblyName)
+                    .ToList();
+
+                return grants.Count == 0
+                    ? null
+                    : $"grants InternalsVisibleTo to: {string.Join(", ", grants)}. Domain's internal "
+                      + "members are reached only through an aggregate root's public surface; a grant "
+                      + "here means something outside the assembly stopped doing that.";
+            },
+            layer => layer.ProjectName);
 
     private static string? PublicSetterViolation(Type entity)
     {

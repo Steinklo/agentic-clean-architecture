@@ -32,6 +32,34 @@ namespace Todo.ArchitectureTests;
 public sealed class PersistenceModelTests
 {
     /// <summary>
+    /// Rule: <see cref="Rules.TodoDbContextDeclaresNoDbSetProperties"/>. Configurations arrive by
+    /// assembly scan and repositories read through <c>Set&lt;T&gt;()</c>, so a <c>DbSet&lt;T&gt;</c>
+    /// property here is the first line of a habit that ends with this file needing an edit for
+    /// every new aggregate — exactly what the scan exists to avoid.
+    /// </summary>
+    [Fact]
+    public void TodoDbContext_DeclaresNoDbSetProperties() =>
+        Rule.Over(
+            Rules.TodoDbContextDeclaresNoDbSetProperties,
+            [typeof(TodoDbContext)],
+            type =>
+            {
+                var dbSets = type
+                    .GetProperties()
+                    .Where(property => property.PropertyType.IsGenericType
+                        && property.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>))
+                    .Select(property => property.Name)
+                    .ToList();
+
+                return dbSets.Count == 0
+                    ? null
+                    : $"declares DbSet<T> propert{(dbSets.Count == 1 ? "y" : "ies")}: "
+                      + $"{string.Join(", ", dbSets)}. Repositories read through Set<T>() instead, "
+                      + "so a property here is a second, redundant way to reach the same table.";
+            },
+            type => type.Name);
+
+    /// <summary>
     /// Rule: <see cref="Rules.EntityKeysAreNeverDatabaseGenerated"/>. Identity is the domain's,
     /// minted with <c>Guid.CreateVersion7()</c> before anything is saved.
     /// </summary>

@@ -97,10 +97,28 @@ internal static class Rule
     public static void OverProjectReferences(
         ArchitectureRule rule,
         Layer layer,
+        Func<IReadOnlyList<string>, string?> violation) =>
+        OverReferences(rule, layer, ProjectReferences.Of(layer), violation);
+
+    /// <summary>Applies <paramref name="violation"/> to a layer's declared package references.</summary>
+    /// <param name="rule">The rule being enforced.</param>
+    /// <param name="layer">The layer whose project file is read.</param>
+    /// <param name="violation">Returns why the reference set breaks the rule, or null if it does not.</param>
+    public static void OverPackageReferences(
+        ArchitectureRule rule,
+        Layer layer,
+        Func<IReadOnlyList<string>, string?> violation) =>
+        OverReferences(rule, layer, PackageReferences.Of(layer), violation);
+
+    private static void OverReferences(
+        ArchitectureRule rule,
+        Layer layer,
+        IReadOnlyList<string> references,
         Func<IReadOnlyList<string>, string?> violation)
     {
-        // Of() throws if the project file is missing, so this rule cannot pass by examining nothing.
-        var why = violation(ProjectReferences.Of(layer));
+        // The reader throws if the project file is missing, so this rule cannot pass by
+        // examining nothing.
+        var why = violation(references);
 
         if (why is not null)
         {
