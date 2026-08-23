@@ -33,6 +33,67 @@ public sealed partial class SourceLayoutTests
             file => file.RelativePath);
 
     /// <summary>
+    /// Rule: <see cref="Rules.NoSuppressMessageAnywhere"/>. Read from source rather than
+    /// reflection, the same way the namespace/folder rule is: a suppression is a fact about the
+    /// text of the file, and <c>DomainError</c> exists specifically so renaming, not suppressing,
+    /// is what happens to a CA warning here.
+    /// </summary>
+    [Fact]
+    public void SourceFiles_NoneInSrcOrTests_ApplyASuppressMessageAttribute() =>
+        Rule.Over(
+            Rules.NoSuppressMessageAnywhere,
+            AllSourceFiles(),
+            file => CodeLines(file.Text).Any(line => SuppressMessageUsage().IsMatch(line))
+                ? "applies a suppression attribute over a compiler warning. A CA warning here is "
+                  + "fixed - typically by renaming, per DomainError's own history - never suppressed."
+                : null,
+            file => file.RelativePath);
+
+    /// <summary>
+    /// A file's lines with doc comments excluded, so a rule explaining what real usage looks like
+    /// — this one included — cannot trip on its own example.
+    /// </summary>
+    private static IEnumerable<string> CodeLines(string text) =>
+        text.Split('\n').Where(line => !line.TrimStart().StartsWith("///", StringComparison.Ordinal));
+
+    /// <summary>
+    /// Every <c>.cs</c> file under <c>src/</c> and <c>tests/</c>, with its raw text. Broader than
+    /// <see cref="NamespacedSourceFiles"/>, which is scoped to <see cref="Layers.All"/> — this
+    /// rule's claim is explicitly "src or tests" in <c>docs/rules/conventions.md</c>, and a
+    /// suppression hidden in a test project is exactly as much of a lapse as one in a product one.
+    /// </summary>
+    private static List<(string RelativePath, string Text)> AllSourceFiles()
+    {
+        var files = new List<(string RelativePath, string Text)>();
+
+        foreach (var root in new[] { "src", "tests" })
+        {
+            var directory = Path.Combine(Layers.SolutionRoot, root);
+
+            foreach (var path in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+            {
+                if (IsBuildOutput(path, directory))
+                {
+                    continue;
+                }
+
+                files.Add((
+                    Path.GetRelativePath(Layers.SolutionRoot, path).Replace(Path.DirectorySeparatorChar, '/'),
+                    File.ReadAllText(path)));
+            }
+        }
+
+        return files;
+    }
+
+    /// <summary>
+    /// Matches an applied <c>[SuppressMessage(...)]</c> — the parenthesis is what distinguishes
+    /// real usage from prose that merely names the attribute, such as this rule's own remarks.
+    /// </summary>
+    [GeneratedRegex(@"SuppressMessage\s*\(", RegexOptions.CultureInvariant)]
+    private static partial Regex SuppressMessageUsage();
+
+    /// <summary>
     /// Every <c>.cs</c> file under <c>src/</c> that declares a namespace, paired with the one its
     /// folder implies. Files with no namespace — <c>Program.cs</c> under top-level statements — are
     /// not violations and are skipped. Generated migrations are included deliberately: EF writes

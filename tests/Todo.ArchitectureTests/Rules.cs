@@ -287,4 +287,51 @@ internal static class Rules
     /// </summary>
     public static ArchitectureRule LoggedEventIdsAreUnique { get; } =
         new("Every [LoggerMessage] EventId is unique", RuleCoverage.Live, MeaningfulAt: 4);
+
+    // ---------------------------------------------------------------------------------------
+    // Promoted from docs/rules/layers/*.md and conventions.md: stated in the same imperative
+    // voice as every rule above, with no test behind them until an audit found the gap.
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Live: read straight out of <c>Todo.Domain.csproj</c>, which always exists. The one
+    /// package it may carry is <c>Mediator.Abstractions</c>, because <c>DomainEvent</c>
+    /// implements <c>INotification</c> — anything else is a dependency the innermost layer was
+    /// never supposed to acquire.
+    /// </summary>
+    public static ArchitectureRule DomainReferencesOnlyMediatorAbstractions { get; } =
+        new("Domain references no package but Mediator.Abstractions", RuleCoverage.Live);
+
+    /// <summary>
+    /// Live: <c>Todo.Domain</c>'s assembly-level attributes, which always exist to examine.
+    /// An <c>InternalsVisibleTo</c> here would mean something outside the assembly reaches an
+    /// internal member directly instead of through the aggregate root's public surface — the
+    /// aggregate seam test style depends on that never being necessary.
+    /// </summary>
+    public static ArchitectureRule DomainHasNoInternalsVisibleTo { get; } =
+        new("Todo.Domain grants no assembly InternalsVisibleTo access", RuleCoverage.Live);
+
+    /// <summary>
+    /// Live over 5 types, mirroring <see cref="DomainUsesNoOrmTypes"/>'s population: a data
+    /// annotation on a domain type is the same mistake as an EF type there, one layer removed —
+    /// it teaches the model to know something about how it is persisted or displayed.
+    /// </summary>
+    public static ArchitectureRule DomainUsesNoPersistenceAttributes { get; } =
+        new("No persistence or display attribute appears in Todo.Domain", RuleCoverage.Live, MeaningfulAt: 5);
+
+    /// <summary>
+    /// Live: <c>TodoDbContext</c> always exists to examine. A <c>DbSet&lt;T&gt;</c> property is
+    /// what a repository would have to start reading instead of <c>Set&lt;T&gt;()</c>, and the
+    /// point of the assembly scan is that adding an aggregate never touches this file.
+    /// </summary>
+    public static ArchitectureRule TodoDbContextDeclaresNoDbSetProperties { get; } =
+        new("TodoDbContext declares no DbSet<T> property", RuleCoverage.Live);
+
+    /// <summary>
+    /// Live over every source file in <c>src/</c> and <c>tests/</c>. <c>DomainError</c> exists
+    /// specifically so a CA warning gets fixed rather than suppressed — a
+    /// <c>SuppressMessage</c> anywhere is that discipline lapsing once.
+    /// </summary>
+    public static ArchitectureRule NoSuppressMessageAnywhere { get; } =
+        new("No [SuppressMessage] attribute appears anywhere in src or tests", RuleCoverage.Live, MeaningfulAt: 50);
 }

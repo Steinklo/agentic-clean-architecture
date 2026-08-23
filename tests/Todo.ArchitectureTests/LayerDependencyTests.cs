@@ -49,4 +49,44 @@ public sealed class LayerDependencyTests
 
         Assert.Equal("Todo.Application, Todo.Domain", string.Join(", ", references));
     }
+
+    /// <summary>
+    /// Rule: <see cref="Rules.DomainReferencesOnlyMediatorAbstractions"/>. Read from
+    /// <c>Todo.Domain.csproj</c> rather than the compiled assembly for the same reason as the
+    /// project-reference rules: a package pulled in and not yet used would not show up in the
+    /// compiled output, and "declared but unused" is exactly the drift worth catching early.
+    /// </summary>
+    [Fact]
+    public void Domain_PackageReferences_AreMediatorAbstractionsOnly() =>
+        Rule.OverPackageReferences(
+            Rules.DomainReferencesOnlyMediatorAbstractions,
+            Layers.Domain,
+            references => string.Join(", ", references) == "Mediator.Abstractions"
+                ? null
+                : "Domain may reference only the Mediator.Abstractions package, but it references: "
+                  + (references.Count == 0 ? "(nothing)" : string.Join(", ", references)));
+
+    /// <summary>
+    /// Guards <see cref="Domain_PackageReferences_AreMediatorAbstractionsOnly"/> the same way
+    /// <see cref="ProjectReferences_GivenAProjectFileWithReferences_FindsEveryOne"/> guards its
+    /// project-reference counterpart.
+    /// </summary>
+    [Fact]
+    public void PackageReferences_GivenAProjectFileWithReferences_FindsEveryOne()
+    {
+        const string ProjectFileContents = """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <ItemGroup>
+                <PackageReference Include="Mediator.Abstractions" />
+                <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+              </ItemGroup>
+            </Project>
+            """;
+
+        var references = PackageReferences.In(ProjectFileContents);
+
+        Assert.Equal(
+            "Mediator.Abstractions, Microsoft.EntityFrameworkCore.SqlServer",
+            string.Join(", ", references));
+    }
 }

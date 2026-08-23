@@ -20,7 +20,8 @@
 # would cost more than it saves, and an ungated check reports a status on every
 # pull request, which is what a required check needs.
 #
-# Required-check name: "architecture / architecture rules / test".
+# Required-check name: "architecture rules / test" (verified against a live check run —
+# GitHub's context string is "<job name> / <build.yml's job name>", not "<workflow name> / ...").
 
 name: architecture
 

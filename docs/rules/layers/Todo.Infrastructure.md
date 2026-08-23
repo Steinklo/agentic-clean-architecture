@@ -18,9 +18,11 @@ aggregate's repository is registered by hand.
 - No use-case logic. If it decides something, it belongs in Application or Domain.
 - No domain invariants. Reconstituting an aggregate must not re-run validation — the data already
   passed it.
-- No `DbSet` properties on `TodoDbContext`, and no edits to it at all: configurations arrive by
-  assembly scan and repositories use `_context.Set<T>()`, so adding an aggregate adds files and
-  changes none.
+- **No `DbSet` properties on `TodoDbContext`** — `Rules.TodoDbContextDeclaresNoDbSetProperties`.
+  Configurations arrive by assembly scan and repositories use `_context.Set<T>()`, so adding an
+  aggregate adds files and changes none. (The "no edits to it at all" half of this claim is a
+  promise about history, not a fact a static test can check today — it holds only as long as
+  nobody adds a reason to.)
 - **Every repository interface is registered here** — `Rules.RepositoriesAreRegistered`. It is the
   one wiring step nothing discovers: the build stays green and the first request throws.
 

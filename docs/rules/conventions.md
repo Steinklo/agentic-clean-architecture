@@ -53,7 +53,7 @@ necessary and never sufficient.
   `DomainErrorType` drives the one HTTP status translation. The type is `DomainError` and not
   `Error` because `Error` collides with a Visual Basic keyword and trips CA1716 — renaming was
   preferred to suppressing, and there are now **no `SuppressMessage` attributes anywhere** in
-  `src` or `tests`. Keep it that way.
+  `src` or `tests` — `Rules.NoSuppressMessageAnywhere`. Keep it that way.
 - **Errors are constructed inline, at the guard that raises them**, so the rule and its error read
   together. There is no central `*Errors` class. Callers and tests match on the **code**, never the
   message. `ErrorCodeUniquenessTests` scans `Todo.Domain`'s source and fails on a repeated code
