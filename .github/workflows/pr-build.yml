@@ -1,12 +1,12 @@
 # Build and test every pull request (issue 13).
 #
-# Two checks, both delegating to .github/workflows/build.yml:
+# Two checks, both delegating to .github/workflows/build.yml. Their context strings (see the CHECK
+# NAMES note in build.yml) are "build & unit tests / test" and "integration tests / test" -- this
+# workflow's own name is not part of either:
 #
-#   pr-build / build & unit tests / test   builds Todo.slnx -- all seven
-#                                          projects, warnings as errors, NuGet
-#                                          audit on -- then runs the unit suite.
-#   pr-build / integration tests / test    builds and runs the Testcontainers
-#                                          suite against real SQL Server.
+#   build & unit tests / test   builds Todo.slnx -- all seven projects, warnings as errors, NuGet
+#                                audit on -- then runs the unit suite.
+#   integration tests / test    builds and runs the Testcontainers suite against real SQL Server.
 #
 # The layering check is deliberately NOT here: it lives in
 # .github/workflows/architecture.yml so a layering violation fails in seconds

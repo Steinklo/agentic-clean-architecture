@@ -10,14 +10,14 @@
 #   .github/workflows/architecture.yml  -- fast, no container
 #   .github/workflows/pr-build.yml      -- solution build + unit + integration
 #
-# CHECK NAMES. GitHub names a reusable-workflow check
-# "<workflow> / <caller job> / <called job>". The called job below is `test`
-# and must stay `test`, because the three names it produces are what branch
-# protection is configured with:
+# CHECK NAMES. A reusable-workflow check's context, verified against a live check run rather than
+# assumed, is "<caller job> / <called job>" -- the workflow's own name is NOT part of it, unlike a
+# same-file job. The called job below is `test` and must stay `test`, because the three names it
+# produces are the exact strings a required-status-checks ruleset has to name:
 #
-#   architecture / architecture rules / test
-#   pr-build / build & unit tests / test
-#   pr-build / integration tests / test
+#   architecture rules / test
+#   build & unit tests / test
+#   integration tests / test
 #
 # Renaming this job, or a caller's job, silently un-requires the check.
 
