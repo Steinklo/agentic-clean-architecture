@@ -93,9 +93,18 @@ permissions:
   pull-requests: write
   id-token: write
 
+# cancel-in-progress is deliberately false. docs.yml pushes its own commit onto
+# this branch within a couple of minutes of a human push, which fires this
+# workflow again for a pull_request synchronize event -- and that run always
+# skips ("every commit in this push is bot-authored"). With cancellation on,
+# that fast, near-instant skip run entered this group and killed whichever
+# real review of the human's diff was still in flight, and the skip's own
+# green checkmark then stood in for a review that never finished. Queuing
+# instead of cancelling costs time on rapid re-pushes, but a slow real review
+# beats a fast fake one.
 concurrency:
   group: pr-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   review:
