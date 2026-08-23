@@ -25,3 +25,5 @@ An applied migration is never edited; a local hook refuses the write.
 
 `ConfigureServices.cs` — the `DbContext` against SQL Server, `IDatabaseConnectivity`, and one
 `AddScoped` per repository plus the unit of work. The only file a new aggregate adds a DI line to.
+It also registers the base EF Core `DbContext` type, resolved to the same `TodoDbContext`
+instance, for `CountIncompleteItemsHandler` in `Todo.Application`.

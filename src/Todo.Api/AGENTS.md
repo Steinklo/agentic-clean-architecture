@@ -15,8 +15,13 @@ OpenAPI tag `TodoLists`.
 | `POST` | `/api/todo-lists/{todoListId:guid}/items` | `AddTodoItemEndpoint` |
 | `POST` | `/api/todo-lists/{todoListId:guid}/items/{todoItemId:guid}/complete` | `CompleteTodoItemEndpoint` |
 | `POST` | `/api/todo-lists/{todoListId:guid}/archive` | `ArchiveTodoListEndpoint` |
+| `GET` | `/api/todo-lists/{todoListId:guid}/incomplete-count` | `GetIncompleteItemCountEndpoint` |
 
 `/health` is mapped in `Program.cs` and reports real database connectivity.
+
+Every endpoint above dispatches through `ISender` to its Application-layer request, except
+`GetIncompleteItemCountEndpoint`, which queries `TodoDbContext` directly and never calls
+`CountIncompleteItemsQuery`.
 
 ## Plumbing
 
