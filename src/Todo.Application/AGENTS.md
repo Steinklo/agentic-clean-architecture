@@ -15,8 +15,11 @@ here.
 | `CompleteTodoItemCommand` | `Commands/CompleteTodoItem/` | `Result` |
 | `ArchiveTodoListCommand` | `Commands/ArchiveTodoList/` | `Result` |
 | `GetTodoListQuery` | `Queries/GetTodoList/` | `Result<TodoListDto>` |
+| `CountIncompleteItemsQuery` | `TodoLists/CountIncompleteItems.cs` (loose, not its own folder) | `Result<int>` |
 
 Each folder holds the request, its handler in the same file, and its validator beside them.
+`CountIncompleteItemsHandler` takes a `DbContext` rather than `ITodoListRepository`, and this
+project now carries a `Microsoft.EntityFrameworkCore.SqlServer` package reference.
 
 | | |
 |---|---|
