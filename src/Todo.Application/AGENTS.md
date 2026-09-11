@@ -24,6 +24,21 @@ Each folder holds the request, its handler in the same file, and its validator b
 | Event handlers | `TodoLists/Events/` — one per domain event, plus `TodoListEventLog` (ids 2000–2002) |
 | Repository contract | `TodoLists/Abstractions/ITodoListRepository.cs` |
 
+**Manifestations** (`Manifestations/`)
+
+| Use case | Folder | Answers with |
+|---|---|---|
+| `RequestManifestationCommand` | `Commands/RequestManifestation/` | `Result<ManifestationDto>` |
+| `FulfilManifestationCommand` | `Commands/FulfilManifestation/` | `Result` |
+| `GetManifestationQuery` | `Queries/GetManifestation/` | `Result<ManifestationDto>` |
+
+| | |
+|---|---|
+| DTOs | `Manifestations/Dtos/` — `ManifestationDto` |
+| Event handlers | `Manifestations/Events/` — one per domain event, plus `ManifestationEventLog` (ids 3000–3003) |
+| Repository contract | `Manifestations/Abstractions/IManifestationRepository.cs` |
+| Gateway contract | `Manifestations/Abstractions/IRealityGateway.cs` — the port through which this application asks reality to change |
+
 ## Common
 
 | | |
@@ -34,4 +49,5 @@ Each folder holds the request, its handler in the same file, and its validator b
 
 ## Tests
 
-Through the HTTP seam only: `tests/Todo.IntegrationTests/TodoLists/`.
+Through the HTTP seam only: `tests/Todo.IntegrationTests/TodoLists/` and
+`tests/Todo.IntegrationTests/Manifestations/`.
