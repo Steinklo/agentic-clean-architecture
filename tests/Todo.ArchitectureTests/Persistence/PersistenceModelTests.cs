@@ -7,7 +7,7 @@ using Todo.Infrastructure.Persistence;
 namespace Todo.ArchitectureTests.Persistence;
 
 /// <summary>
-/// The Entity Framework model, asserted against the mapping gotchas <c>AGENTS.md</c> records.
+/// The Entity Framework model, asserted against the mapping gotchas <c>docs/rules/gotchas.md</c> records.
 /// </summary>
 /// <remarks>
 /// These are the only rules here that read model metadata rather than compiled types, and they

@@ -9,7 +9,8 @@ placement.
 Versions live in `Directory.Packages.props` and shared compiler properties in
 `Directory.Build.props`; read them there. What those files do not tell you:
 
-- **.NET 10** (`net10.0`), SDK 10.0.302, and **deliberately no `global.json`**.
+- **.NET 10** (`net10.0`), with the SDK version pinned once, in `.github/workflows/build.yml`, and
+  **deliberately no `global.json`**.
 - The solution file is **`Todo.slnx`** — the .NET 10 XML format, **not** `.sln`. Tooling that
   assumes `.sln` will not find it.
 - Mediator is `martinothamar/Mediator` — **source-generated CQRS, not MediatR**, and the two

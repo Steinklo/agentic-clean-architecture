@@ -14,8 +14,8 @@ reasoning: authored
                            and the diff does not answer.
     3. A real trade-off  - a reasonable person would have picked the alternative.
 
-  Miss one and there is no ADR. Put the reasoning in a code comment or an AGENTS.md
-  gotcha instead.
+  Miss one and there is no ADR. Put the reasoning in a code comment or a gotcha in
+  docs/rules/gotchas.md instead.
 
   TWO FRONT-MATTER FIELDS, and they answer different questions.
 

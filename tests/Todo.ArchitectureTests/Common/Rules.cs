@@ -117,7 +117,7 @@ internal static class Rules
         new("No object-relational mapping type appears in Todo.Domain", RuleCoverage.Live, MeaningfulAt: 5);
 
     /// <summary>
-    /// Live: promoted by ticket 05, which gave Todo.Application its first types - the request
+    /// Live: promoted by the slice that gave Todo.Application its first types - the request
     /// pipeline, its behaviours, and the TodoLists feature.
     /// </summary>
     public static ArchitectureRule ApplicationUsesNoOrmTypes { get; } =
@@ -131,7 +131,7 @@ internal static class Rules
         new("No object-relational mapping type appears in Todo.Api", RuleCoverage.Live, MeaningfulAt: 5);
 
     /// <summary>
-    /// Live: promoted by ticket 05, whose CreateTodoListHandler and GetTodoListHandler are the
+    /// Live: promoted by the slice whose CreateTodoListHandler and GetTodoListHandler are the
     /// first implementations of <c>IRequestHandler</c>. Meaningful at 3 — one handler proves a
     /// spelling, several prove a convention.
     /// </summary>
@@ -181,7 +181,7 @@ internal static class Rules
         new("Every IRequest has an AbstractValidator", RuleCoverage.Live, MeaningfulAt: 3);
 
     /// <summary>
-    /// Live over 3 aggregate roots' worth of entities. <c>UnitOfWork</c> enumerates
+    /// Thin: one aggregate root exists, TodoList. <c>UnitOfWork</c> enumerates
     /// <c>ChangeTracker.Entries&lt;AggregateRoot&lt;Guid&gt;&gt;()</c>, so a root keyed on
     /// anything else compiles, saves, and never dispatches a domain event.
     /// </summary>
@@ -239,7 +239,7 @@ internal static class Rules
         new("Every repository interface is registered in Infrastructure", RuleCoverage.Thin, MeaningfulAt: 2);
 
     // ---------------------------------------------------------------------------------------
-    // The mapping. Every one of these is a gotcha AGENTS.md records because it already cost
+    // The mapping. Every one of these is a gotcha docs/rules/gotchas.md records because it already cost
     // someone real time, and every one of them fails quietly: the model builds, the schema is
     // created, rows are written, and something is subtly wrong.
     // ---------------------------------------------------------------------------------------

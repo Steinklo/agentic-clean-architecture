@@ -27,7 +27,6 @@ coverage.*.xml
 
 ## Agent and documentation material - none of it compiles
 .claude/
-.scratch/
 docs/
 **/*.md
 .protected-paths.json
@@ -37,9 +36,12 @@ scripts/
 ## projects it references and nothing else; the test projects are not part of it.
 tests/
 
-## The container's own artefacts, so a nested copy can never end up in the context
-Dockerfile
-docker-compose*.yml
+## The container's own artefacts, so a nested copy can never end up in the context.
+## `**/` because a bare name matches at the root only, and the one Dockerfile here is
+## src/Todo.Api/Dockerfile. Excluding it is safe: the builder receives the Dockerfile
+## separately from the context.
+**/Dockerfile
+**/docker-compose*.yml
 .dockerignore
 
 ## Local environment

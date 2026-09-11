@@ -38,8 +38,7 @@ one of them fails quietly: the model builds, migrations apply, rows are written,
 wrong for a long time.
 
 - **`Rules.ValueObjectsHaveAConverterAndComparer`** — a `ValueConverter` *and* an explicit
-  `ValueComparer`, never `ComplexProperty`. The converter alone reads back correctly and leaves EF
-  comparing by reference.
+  `ValueComparer`, never `ComplexProperty`. The first EF gotcha says why each half is needed.
 - **`Rules.EntityKeysAreNeverDatabaseGenerated`** — `ValueGeneratedNever()` on every key. The
   domain mints ids.
 - **`Rules.DomainEventsAreNeverMapped`** — `Ignore(x => x.DomainEvents)` on every aggregate root,
