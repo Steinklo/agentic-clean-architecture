@@ -1,9 +1,10 @@
 using System.Text.RegularExpressions;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Conventions;
 
 /// <summary>
-/// Namespaces follow folders, across every authored source file in <c>src/</c>.
+/// Namespaces follow folders, across every authored source file in <c>src/</c> and <c>tests/</c>,
+/// and no test file sits loose at its project's root.
 /// </summary>
 /// <remarks>
 /// This one underwrites another. <see cref="Rules.RequestsLiveInAUseCaseFolder"/> asserts on a
@@ -33,6 +34,23 @@ public sealed partial class SourceLayoutTests
             file => file.RelativePath);
 
     /// <summary>
+    /// Rule: <see cref="Rules.TestFilesLiveInAFolder"/>. Quantified over test projects, the way the
+    /// feature-root rule is quantified over features, and each one reports every file it holds
+    /// loose.
+    /// </summary>
+    [Fact]
+    public void TestProjects_HaveNoSourceFileAtTheirRoot() =>
+        Rule.Over(
+            Rules.TestFilesLiveInAFolder,
+            TestProjects(),
+            project => project.Loose.Count == 0
+                ? null
+                : $"holds {string.Join(", ", project.Loose)} directly. A test lives in a folder "
+                  + "named for what it covers - a feature, mirroring src/ - and the harness the "
+                  + "tests share lives in Common/.",
+            project => project.Name);
+
+    /// <summary>
     /// Rule: <see cref="Rules.NoSuppressMessageAnywhere"/>. Read from source rather than
     /// reflection, the same way the namespace/folder rule is: a suppression is a fact about the
     /// text of the file, and <c>DomainError</c> exists specifically so renaming, not suppressing,
@@ -57,10 +75,8 @@ public sealed partial class SourceLayoutTests
         text.Split('\n').Where(line => !line.TrimStart().StartsWith("///", StringComparison.Ordinal));
 
     /// <summary>
-    /// Every <c>.cs</c> file under <c>src/</c> and <c>tests/</c>, with its raw text. Broader than
-    /// <see cref="NamespacedSourceFiles"/>, which is scoped to <see cref="Layers.All"/> — this
-    /// rule's claim is explicitly "src or tests" in <c>docs/rules/conventions.md</c>, and a
-    /// suppression hidden in a test project is exactly as much of a lapse as one in a product one.
+    /// Every <c>.cs</c> file under <c>src/</c> and <c>tests/</c>, with its raw text — namespaced or
+    /// not, since a suppression in <c>Program.cs</c> is as much of a lapse as one anywhere else.
     /// </summary>
     private static List<(string RelativePath, string Text)> AllSourceFiles()
     {
@@ -94,20 +110,19 @@ public sealed partial class SourceLayoutTests
     private static partial Regex SuppressMessageUsage();
 
     /// <summary>
-    /// Every <c>.cs</c> file under <c>src/</c> that declares a namespace, paired with the one its
-    /// folder implies. Files with no namespace — <c>Program.cs</c> under top-level statements — are
-    /// not violations and are skipped. Generated migrations are included deliberately: EF writes
-    /// them into a folder and names them after it, so they should agree like anything else.
+    /// Every <c>.cs</c> file in a layer or a test project that declares a namespace, paired with
+    /// the one its folder implies. Files with no namespace — <c>Program.cs</c> under top-level
+    /// statements — are not violations and are skipped. Generated migrations are included
+    /// deliberately: EF writes them into a folder and names them after it, so they should agree
+    /// like anything else.
     /// </summary>
     private static List<(string RelativePath, string Declared, string Expected)>
         NamespacedSourceFiles()
     {
         var files = new List<(string RelativePath, string Declared, string Expected)>();
 
-        foreach (var layer in Layers.All)
+        foreach (var (projectName, projectDirectory) in Projects())
         {
-            var projectDirectory = Path.GetDirectoryName(layer.ProjectFilePath)!;
-
             foreach (var path in Directory.EnumerateFiles(projectDirectory, "*.cs", SearchOption.AllDirectories))
             {
                 if (IsBuildOutput(path, projectDirectory))
@@ -125,17 +140,47 @@ public sealed partial class SourceLayoutTests
                 var folder = Path.GetDirectoryName(Path.GetRelativePath(projectDirectory, path))!;
 
                 var expected = folder.Length == 0
-                    ? layer.ProjectName
-                    : $"{layer.ProjectName}.{folder.Replace(Path.DirectorySeparatorChar, '.')}";
+                    ? projectName
+                    : $"{projectName}.{folder.Replace(Path.DirectorySeparatorChar, '.')}";
 
                 files.Add((
-                    Path.GetRelativePath(projectDirectory, path).Replace(Path.DirectorySeparatorChar, '/'),
+                    Path.GetRelativePath(Layers.SolutionRoot, path).Replace(Path.DirectorySeparatorChar, '/'),
                     declared.Groups["ns"].Value,
                     expected));
             }
         }
 
         return files;
+    }
+
+    /// <summary>
+    /// The four layers, then every test project — each with the name its namespaces start from.
+    /// </summary>
+    private static IEnumerable<(string Name, string Directory)> Projects() =>
+        Layers.All
+            .Select(layer => (layer.ProjectName, Path.GetDirectoryName(layer.ProjectFilePath)!))
+            .Concat(TestProjects().Select(project => (project.Name, project.Directory)));
+
+    /// <summary>
+    /// Every project under <c>tests/</c>, found by its <c>.csproj</c> so a new one is examined
+    /// without being listed here, with the source files it holds at its root.
+    /// </summary>
+    private static List<(string Name, string Directory, List<string> Loose)> TestProjects()
+    {
+        var projects = new List<(string Name, string Directory, List<string> Loose)>();
+
+        foreach (var directory in Directory.EnumerateDirectories(Path.Combine(Layers.SolutionRoot, "tests")))
+        {
+            foreach (var projectFile in Directory.EnumerateFiles(directory, "*.csproj"))
+            {
+                projects.Add((
+                    Path.GetFileNameWithoutExtension(projectFile),
+                    directory,
+                    [.. Directory.EnumerateFiles(directory, "*.cs").Select(path => Path.GetRelativePath(directory, path))]));
+            }
+        }
+
+        return projects;
     }
 
     private static bool IsBuildOutput(string path, string projectDirectory) =>

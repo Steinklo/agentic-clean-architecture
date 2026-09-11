@@ -8,7 +8,7 @@ solution currently contains is in the `AGENTS.md` map files, which are regenerat
 ## The rules, and the tests that enforce them
 
 Every layering rule is a test. Prose explains *why*; the test decides.
-**`tests/Todo.ArchitectureTests/Rules.cs` is the inventory** — read it to learn what the suite
+**`tests/Todo.ArchitectureTests/Common/Rules.cs` is the inventory** — read it to learn what the suite
 guarantees today, rather than trusting a list in prose. Each `docs/rules/layers/<project>.md` names the
 rules that bite in that layer.
 

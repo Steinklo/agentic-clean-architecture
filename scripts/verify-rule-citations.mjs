@@ -6,7 +6,7 @@
 // .github/workflows/pr-review.yml came to tell the review agent that error codes
 // live in a central `*Errors` class, which this repository explicitly rejects.
 // The fix was to stop restating and start citing -- prose names the rule, and
-// tests/Todo.ArchitectureTests/Rules.cs owns what it means.
+// tests/Todo.ArchitectureTests/Common/Rules.cs owns what it means.
 //
 // That trade swaps one failure mode for another. A restated rule goes stale
 // silently; a citation goes stale silently too, if the rule is renamed or
@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const RULES_FILE = "tests/Todo.ArchitectureTests/Rules.cs";
+const RULES_FILE = "tests/Todo.ArchitectureTests/Common/Rules.cs";
 
 // Where a citation may appear. Anything an agent or a reviewer reads as instruction.
 const CITING_PLACES = ["AGENTS.md", "CLAUDE.md", "README.md", "src", ".claude", ".github", "docs"];

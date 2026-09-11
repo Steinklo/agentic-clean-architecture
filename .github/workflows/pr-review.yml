@@ -322,7 +322,7 @@ jobs:
               and, more importantly, which one was considered and deliberately
               rejected. A test in the rejected seam is a finding even though it
               passes.
-            - `tests/Todo.ArchitectureTests/Rules.cs` -- the inventory of what
+            - `tests/Todo.ArchitectureTests/Common/Rules.cs` -- the inventory of what
               the suite guarantees today, and the file to cite when a violation
               is already covered.
 
@@ -338,7 +338,7 @@ jobs:
             appearing in Domain, Application or Api -- the rule forbids the
             namespace, not the project reference.
 
-            The architecture tests in `tests/Todo.ArchitectureTests/Rules.cs`
+            The architecture tests in `tests/Todo.ArchitectureTests/Common/Rules.cs`
             are the enforcement, and they run in their own check. So: if a
             layering violation is already covered by a rule there, say which
             rule will catch it and move on -- do not re-litigate it at length.

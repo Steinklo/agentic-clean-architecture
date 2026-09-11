@@ -29,6 +29,7 @@ Feature per aggregate, then a folder per use case. `<Feature>` is the **plural**
 | Endpoints, and the feature's `<Aggregate>Endpoint.cs` base class | `src/Todo.Api/Endpoints/<Feature>/` |
 | HTTP tests | `tests/Todo.IntegrationTests/<Feature>/<Thing>EndpointTests.cs` |
 | Aggregate tests | `tests/Todo.UnitTests/<Feature>/<Aggregate>Tests.cs` |
+| Test harness shared across features | `tests/<TestProject>/Common/` — nothing sits at a test project's root (`Rules.TestFilesLiveInAFolder`) |
 
 **Create the use-case folder**; files loose in `Commands/` are wrong (`Rules.RequestsLiveInAUseCaseFolder`). DTOs are the exception because they are shared — `TodoListDto` is returned by both `CreateTodoList` and `GetTodoList`, so it belongs to neither folder (`Rules.DtosLiveInTheirFeaturesDtosNamespace`).
 

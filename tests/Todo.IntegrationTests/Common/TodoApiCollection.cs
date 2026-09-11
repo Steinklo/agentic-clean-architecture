@@ -1,4 +1,4 @@
-namespace Todo.IntegrationTests;
+namespace Todo.IntegrationTests.Common;
 
 /// <summary>
 /// Binds every integration test to the one shared <see cref="TodoApiFixture"/>.

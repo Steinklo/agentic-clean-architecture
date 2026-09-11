@@ -1,4 +1,4 @@
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Slices;
 
 /// <summary>
 /// Handler naming. A handler that is not called <c>*Handler</c> is invisible to anyone scanning

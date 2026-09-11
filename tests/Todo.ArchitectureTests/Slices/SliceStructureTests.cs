@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using Mediator;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Slices;
 
 /// <summary>
 /// The shape every vertical slice repeats: what is public, where a file goes, and what an

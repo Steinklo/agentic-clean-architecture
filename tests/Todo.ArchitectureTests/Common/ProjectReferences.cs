@@ -1,6 +1,6 @@
 using System.Xml.Linq;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Common;
 
 /// <summary>
 /// Reads the <c>ProjectReference</c> graph out of a project file.

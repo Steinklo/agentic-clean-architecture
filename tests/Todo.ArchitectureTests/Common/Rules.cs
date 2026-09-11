@@ -1,4 +1,4 @@
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Common;
 
 /// <summary>
 /// How much a rule is currently proving.
@@ -99,7 +99,7 @@ internal static class Rules
     /// <summary>
     /// Live: read straight out of <c>Todo.Domain.csproj</c>, which always exists.
     /// Its passing state is an empty result, so it is additionally guarded by
-    /// <see cref="LayerDependencyTests.ProjectReferences_GivenAProjectFileWithReferences_FindsEveryOne"/>.
+    /// <see cref="Dependencies.LayerDependencyTests.ProjectReferences_GivenAProjectFileWithReferences_FindsEveryOne"/>.
     /// </summary>
     public static ArchitectureRule DomainHasNoProjectReferences { get; } =
         new("Domain references no other project", RuleCoverage.Live);
@@ -273,12 +273,21 @@ internal static class Rules
     // ---------------------------------------------------------------------------------------
 
     /// <summary>
-    /// Live over every authored source file. Namespaces follow folders here, which is what lets
-    /// the use-case-folder rule assert on a namespace and mean a directory. Moving a file changes
-    /// its namespace, and a file whose two disagree breaks that equivalence silently.
+    /// Live over every authored source file in <c>src/</c> and <c>tests/</c>. Namespaces follow
+    /// folders here, which is what lets the use-case-folder rule assert on a namespace and mean a
+    /// directory. Moving a file changes its namespace, and a file whose two disagree breaks that
+    /// equivalence silently.
     /// </summary>
     public static ArchitectureRule NamespacesFollowFolders { get; } =
         new("Every source file's namespace matches its folder path", RuleCoverage.Live, MeaningfulAt: 20);
+
+    /// <summary>
+    /// Live over the three test projects. A test sits in a folder named for what it covers — a
+    /// feature, mirroring <c>src/</c> — and the harness the tests share sits in <c>Common/</c>, so
+    /// a test project's root lists folders and nothing a reader has to open to place.
+    /// </summary>
+    public static ArchitectureRule TestFilesLiveInAFolder { get; } =
+        new("No source file lives at a test project's root", RuleCoverage.Live, MeaningfulAt: 3);
 
     /// <summary>
     /// Live over 6 logged events. The integration tests prove a domain event was dispatched by

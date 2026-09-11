@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Todo.Domain.Common;
 using Todo.Infrastructure.Persistence;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Persistence;
 
 /// <summary>
 /// The Entity Framework model, asserted against the mapping gotchas <c>AGENTS.md</c> records.

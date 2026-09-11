@@ -61,4 +61,7 @@ necessary and never sufficient.
 - Ids are `Guid.CreateVersion7()`, minted by the domain
   (`Rules.EntityKeysAreNeverDatabaseGenerated` keeps the database out of it).
 - DTOs are records with an explicit `static FromDomain(...)`. **No AutoMapper or Mapster.**
-- Test naming: `Method_Scenario_ExpectedResult`. The test tree mirrors the production tree.
+- Test naming: `Method_Scenario_ExpectedResult`. The test tree mirrors the production tree:
+  **no source file sits at a test project's root** (`Rules.TestFilesLiveInAFolder`). A test goes
+  in a folder named for the feature it covers, the harness the tests share goes in `Common/`, and
+  namespaces follow those folders like anywhere else.

@@ -29,7 +29,7 @@ Exactly these, and no others. The agent must not invent a new `AGENTS.md` anywhe
 
 | Map | What it is | Derived from |
 | --- | --- | --- |
-| `AGENTS.md` | The root map: which features exist, where each one's parts live, the entry points, and the shared building blocks. | The feature folders across `src/`, the `ConfigureServices` files, `Program.cs`, and `tests/Todo.ArchitectureTests/Rules.cs` for the pointer to the rule inventory. |
+| `AGENTS.md` | The root map: which features exist, where each one's parts live, the entry points, and the shared building blocks. | The feature folders across `src/`, the `ConfigureServices` files, `Program.cs`, and `tests/Todo.ArchitectureTests/Common/Rules.cs` for the pointer to the rule inventory. |
 | `<directory>/AGENTS.md` | One map per directory that has one — today that is each project under `src/`. What that directory holds right now: the types, folders and routes actually present. | That directory's own source tree. Nothing else. |
 | `CLAUDE.md` | A pointer to `AGENTS.md`. It has no content of its own. | — |
 

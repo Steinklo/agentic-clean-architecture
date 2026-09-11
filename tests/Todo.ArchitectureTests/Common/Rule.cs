@@ -1,6 +1,6 @@
 using NetArchTest.Rules;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Common;
 
 /// <summary>
 /// Runs an <see cref="ArchitectureRule"/> and reports it.

@@ -1,6 +1,6 @@
 using Mono.Cecil;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Dependencies;
 
 /// <summary>
 /// Object-relational mapping types belong to Infrastructure and nowhere else, and the domain

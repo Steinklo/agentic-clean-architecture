@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Todo.Domain.Common;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Domain;
 
 /// <summary>
 /// The shape of the domain model itself: encapsulation of entities, and the base type every value
