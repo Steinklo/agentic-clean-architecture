@@ -536,6 +536,7 @@ jobs:
         if: ${{ steps.loop.outputs.regenerate == 'true' }}
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -555,8 +556,43 @@ jobs:
           for file in "${changed[@]}"; do echo "  ${file}"; done
           echo
 
+          # claude-code-action resets a fixed set of paths -- .claude/, CLAUDE.md and
+          # a few others -- to the base branch before the agent runs, because it
+          # treats the pull request's versions as untrusted, and leaves them
+          # unstaged. It snapshots each one into .claude-pr/<path> first, which is how
+          # this step tells that reset from the agent's writes without keeping a copy
+          # of the action's list: a file under a snapshotted path that holds exactly
+          # the base's version -- or, like the base, does not exist -- is the reset.
+          # If the action stops snapshotting, nothing matches and those files are
+          # reported as before: loudly wrong, never silently.
+          reset_by_action() {
+            local file="$1" base="origin/${BASE_REF}"
+            [ -e ".claude-pr/${file%%/*}" ] || return 1
+            if git cat-file -e "${base}:${file}" 2>/dev/null; then
+              [ -f "${file}" ] && [ "$(git hash-object -- "${file}")" = "$(git rev-parse "${base}:${file}")" ]
+            else
+              [ ! -e "${file}" ]
+            fi
+          }
+
           trespass=()
+          restored=()
           for file in "${changed[@]}"; do
+            if reset_by_action "${file}"; then
+              # Put the pull request's version back: from the index when the pull
+              # request has the file, by deleting it when the reset brought back a
+              # file the pull request removed. Agent-owned files are included --
+              # CLAUDE.md is on the action's list too, and its reset must not be
+              # committed as the agent's regeneration.
+              if git cat-file -e "HEAD:${file}" 2>/dev/null; then
+                git checkout -- "${file}"
+              else
+                rm -f -- "${file}"
+              fi
+              restored+=("${file}")
+              continue
+            fi
+
             # --classify, not --check. This step asks "may the AGENT keep this?", which
             # is a different question from "may a HUMAN write this?" and stopped having
             # the same answer when decision records became shared: a record answers yes
@@ -582,6 +618,12 @@ jobs:
             esac
           done
 
+          if [ ${#restored[@]} -gt 0 ]; then
+            echo "Reset to ${BASE_REF} by the action, not written by the agent; the pull request's version is back:"
+            for file in "${restored[@]}"; do echo "  ${file}"; done
+            echo
+          fi
+
           if [ ${#trespass[@]} -gt 0 ]; then
             # Discarded rather than refused. Failing the run here punishes the
             # human for the agent's mistake: their pull request goes red over a
@@ -594,10 +636,7 @@ jobs:
 
             # Capture BEFORE reverting. The discarded diff is the only record of what
             # the agent was trying to say, and throwing it away is how a correct
-            # observation becomes invisible. On this pull request the agent went for
-            # the same stale skill on four consecutive runs; each time the guard did
-            # its job and each time the finding died with the revert, until a human
-            # happened to notice the pattern. Asking the agent to narrate instead does
+            # observation becomes invisible. Asking the agent to narrate instead does
             # not work either -- its final message is not surfaced anywhere.
             proposal="${RUNNER_TEMP}/discarded-proposal.md"
             : >"${proposal}"
@@ -607,7 +646,14 @@ jobs:
 
               chunk="${RUNNER_TEMP}/discarded-chunk"
               if git ls-files --error-unmatch "${file}" >/dev/null 2>&1; then
-                git diff -- "${file}" >"${chunk}"
+                if [ -e ".claude-pr/${file%%/*}" ]; then
+                  # The agent saw the base's version of a reset path, so its change is
+                  # measured from there -- against the pull request it would also show
+                  # the action undoing the pull request's own edits.
+                  git diff "origin/${BASE_REF}" -- "${file}" >"${chunk}"
+                else
+                  git diff -- "${file}" >"${chunk}"
+                fi
               else
                 { echo "(new file)"; cat -- "${file}"; } >"${chunk}"
               fi
