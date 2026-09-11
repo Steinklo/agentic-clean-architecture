@@ -651,6 +651,12 @@ jobs:
               cat "${proposal}"
             } >>"${GITHUB_STEP_SUMMARY}"
 
+            # The summary renders only in the web UI -- neither `gh run view --log` nor
+            # the API can read it -- so the same diff also goes to the log and into the
+            # comment, where whoever acts on the finding is already looking.
+            echo "What it wanted to change:" >&2
+            cat "${proposal}" >&2
+
             if [ -n "${PR_NUMBER:-}" ]; then
               {
                 echo "The documentation agent wrote outside the files it owns, and those writes were discarded:"
@@ -659,8 +665,16 @@ jobs:
                 echo
                 echo "Nothing outside its own files reached this branch. Any map it corrected still landed."
                 echo
-                echo "**The change it wanted to make is in the [run summary](${RUN_URL}).** It is discarded,"
-                echo "not rejected -- if it keeps reaching for the same file, that file is probably stale."
+                echo "**What it wanted to change is below.** It is discarded, not rejected -- if it keeps"
+                echo "reaching for the same file, that file is probably stale. Apply it yourself if it is right."
+                echo
+                # A comment body is capped at 65,536 characters. Past a safe margin, point
+                # at the summary rather than cut a diff off mid-fence.
+                if [ "$(wc -c <"${proposal}")" -le 60000 ]; then
+                  cat "${proposal}"
+                else
+                  echo "It is too long for a comment; the full diff is in the [run summary](${RUN_URL})."
+                fi
               } | gh pr comment "${PR_NUMBER}" --body-file - || true
             fi
           fi
