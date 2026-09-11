@@ -605,17 +605,33 @@ jobs:
             for file in "${trespass[@]}"; do
               echo "  ${file}" >&2
 
+              chunk="${RUNNER_TEMP}/discarded-chunk"
+              if git ls-files --error-unmatch "${file}" >/dev/null 2>&1; then
+                git diff -- "${file}" >"${chunk}"
+              else
+                { echo "(new file)"; cat -- "${file}"; } >"${chunk}"
+              fi
+              size=$(wc -c <"${chunk}")
+
+              # Fence with more backticks than the diff contains. A diff renders an
+              # unchanged "```" line as " ```", which CommonMark accepts as a closing
+              # fence, and everything after it would render as live markdown -- in a
+              # pull request comment, mentions and cross-references included.
+              longest=$({ grep -o '`\+' "${chunk}" || true; } | awk '{ if (length > n) n = length } END { print n + 0 }')
+              fence=$(printf '%*s' "$(( longest < 3 ? 3 : longest + 1 ))" '' | tr ' ' '`')
+
               {
                 echo "<details><summary><code>${file}</code></summary>"
                 echo
-                echo '```diff'
-                if git ls-files --error-unmatch "${file}" >/dev/null 2>&1; then
-                  git diff -- "${file}" | head -c 20000
-                else
-                  echo "(new file)"
-                  head -c 20000 -- "${file}"
+                echo "${fence}diff"
+                # head -c cuts mid-line, and the closing fence must start a line of its
+                # own: the substitution drops trailing newlines, printf adds exactly one.
+                printf '%s\n' "$(head -c 20000 "${chunk}")"
+                echo "${fence}"
+                if [ "${size}" -gt 20000 ]; then
+                  echo
+                  echo "_Truncated at 20,000 of ${size} bytes._"
                 fi
-                echo '```'
                 echo
                 echo '</details>'
                 echo
@@ -665,15 +681,18 @@ jobs:
                 echo
                 echo "Nothing outside its own files reached this branch. Any map it corrected still landed."
                 echo
-                echo "**What it wanted to change is below.** It is discarded, not rejected -- if it keeps"
-                echo "reaching for the same file, that file is probably stale. Apply it yourself if it is right."
+                echo "It is discarded, not rejected -- if the agent keeps reaching for the same file,"
+                echo "that file is probably stale. Apply the change yourself if it is right."
                 echo
-                # A comment body is capped at 65,536 characters. Past a safe margin, point
-                # at the summary rather than cut a diff off mid-fence.
+                # A comment body is capped at 65,536 characters. Past a safe margin, say
+                # where the diff is rather than post part of it.
                 if [ "$(wc -c <"${proposal}")" -le 60000 ]; then
+                  echo "**What it wanted to change:**"
+                  echo
                   cat "${proposal}"
                 else
-                  echo "It is too long for a comment; the full diff is in the [run summary](${RUN_URL})."
+                  echo "**What it wanted to change** is too long for a comment. It is in the job log"
+                  echo "(\`gh run view ${GITHUB_RUN_ID} --log\`) and the [run summary](${RUN_URL})."
                 fi
               } | gh pr comment "${PR_NUMBER}" --body-file - || true
             fi
