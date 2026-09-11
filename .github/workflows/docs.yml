@@ -536,6 +536,7 @@ jobs:
         if: ${{ steps.loop.outputs.regenerate == 'true' }}
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -556,6 +557,7 @@ jobs:
           echo
 
           trespass=()
+          restored=()
           for file in "${changed[@]}"; do
             # --classify, not --check. This step asks "may the AGENT keep this?", which
             # is a different question from "may a HUMAN write this?" and stopped having
@@ -576,11 +578,32 @@ jobs:
 
             case "${verdict}" in
               agent-owned|shared-owned) ;;
-              human-owned|unguarded|outside-repo) trespass+=("${file}") ;;
+              human-owned|unguarded|outside-repo)
+                # claude-code-action resets .claude/, CLAUDE.md and a few other paths
+                # to the base branch before the agent runs -- it treats the pull
+                # request's versions as untrusted -- and leaves them unstaged. A
+                # tracked file that is back to exactly the base version is that
+                # reset, not the agent: put the pull request's version back and say
+                # nothing. Matching the base keeps the action's path list out of this
+                # file. The one write it also swallows, the agent setting a file back
+                # to exactly the base, is undone here all the same.
+                if git ls-files --error-unmatch -- "${file}" >/dev/null 2>&1 \
+                  && git diff --quiet "origin/${BASE_REF}" -- "${file}"; then
+                  git checkout -- "${file}"
+                  restored+=("${file}")
+                else
+                  trespass+=("${file}")
+                fi ;;
               *) echo "protected-paths.mjs returned an unknown verdict '${verdict}' for ${file}." >&2
                  exit 1 ;;
             esac
           done
+
+          if [ ${#restored[@]} -gt 0 ]; then
+            echo "Reset to ${BASE_REF} by the action, not written by the agent; the pull request's version is back:"
+            for file in "${restored[@]}"; do echo "  ${file}"; done
+            echo
+          fi
 
           if [ ${#trespass[@]} -gt 0 ]; then
             # Discarded rather than refused. Failing the run here punishes the
@@ -594,10 +617,7 @@ jobs:
 
             # Capture BEFORE reverting. The discarded diff is the only record of what
             # the agent was trying to say, and throwing it away is how a correct
-            # observation becomes invisible. On this pull request the agent went for
-            # the same stale skill on four consecutive runs; each time the guard did
-            # its job and each time the finding died with the revert, until a human
-            # happened to notice the pattern. Asking the agent to narrate instead does
+            # observation becomes invisible. Asking the agent to narrate instead does
             # not work either -- its final message is not surfaced anywhere.
             proposal="${RUNNER_TEMP}/discarded-proposal.md"
             : >"${proposal}"
