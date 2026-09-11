@@ -1,4 +1,4 @@
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Common;
 
 /// <summary>
 /// How much a rule is currently proving.
@@ -99,7 +99,7 @@ internal static class Rules
     /// <summary>
     /// Live: read straight out of <c>Todo.Domain.csproj</c>, which always exists.
     /// Its passing state is an empty result, so it is additionally guarded by
-    /// <see cref="LayerDependencyTests.ProjectReferences_GivenAProjectFileWithReferences_FindsEveryOne"/>.
+    /// <see cref="Dependencies.LayerDependencyTests.ProjectReferences_GivenAProjectFileWithReferences_FindsEveryOne"/>.
     /// </summary>
     public static ArchitectureRule DomainHasNoProjectReferences { get; } =
         new("Domain references no other project", RuleCoverage.Live);
@@ -117,7 +117,7 @@ internal static class Rules
         new("No object-relational mapping type appears in Todo.Domain", RuleCoverage.Live, MeaningfulAt: 5);
 
     /// <summary>
-    /// Live: promoted by ticket 05, which gave Todo.Application its first types - the request
+    /// Live: promoted by the slice that gave Todo.Application its first types - the request
     /// pipeline, its behaviours, and the TodoLists feature.
     /// </summary>
     public static ArchitectureRule ApplicationUsesNoOrmTypes { get; } =
@@ -131,7 +131,7 @@ internal static class Rules
         new("No object-relational mapping type appears in Todo.Api", RuleCoverage.Live, MeaningfulAt: 5);
 
     /// <summary>
-    /// Live: promoted by ticket 05, whose CreateTodoListHandler and GetTodoListHandler are the
+    /// Live: promoted by the slice whose CreateTodoListHandler and GetTodoListHandler are the
     /// first implementations of <c>IRequestHandler</c>. Meaningful at 3 — one handler proves a
     /// spelling, several prove a convention.
     /// </summary>
@@ -181,7 +181,7 @@ internal static class Rules
         new("Every IRequest has an AbstractValidator", RuleCoverage.Live, MeaningfulAt: 3);
 
     /// <summary>
-    /// Live over 3 aggregate roots' worth of entities. <c>UnitOfWork</c> enumerates
+    /// Thin: one aggregate root exists, TodoList. <c>UnitOfWork</c> enumerates
     /// <c>ChangeTracker.Entries&lt;AggregateRoot&lt;Guid&gt;&gt;()</c>, so a root keyed on
     /// anything else compiles, saves, and never dispatches a domain event.
     /// </summary>
@@ -239,7 +239,7 @@ internal static class Rules
         new("Every repository interface is registered in Infrastructure", RuleCoverage.Thin, MeaningfulAt: 2);
 
     // ---------------------------------------------------------------------------------------
-    // The mapping. Every one of these is a gotcha AGENTS.md records because it already cost
+    // The mapping. Every one of these is a gotcha docs/rules/gotchas.md records because it already cost
     // someone real time, and every one of them fails quietly: the model builds, the schema is
     // created, rows are written, and something is subtly wrong.
     // ---------------------------------------------------------------------------------------
@@ -273,12 +273,21 @@ internal static class Rules
     // ---------------------------------------------------------------------------------------
 
     /// <summary>
-    /// Live over every authored source file. Namespaces follow folders here, which is what lets
-    /// the use-case-folder rule assert on a namespace and mean a directory. Moving a file changes
-    /// its namespace, and a file whose two disagree breaks that equivalence silently.
+    /// Live over every authored source file in <c>src/</c> and <c>tests/</c>. Namespaces follow
+    /// folders here, which is what lets the use-case-folder rule assert on a namespace and mean a
+    /// directory. Moving a file changes its namespace, and a file whose two disagree breaks that
+    /// equivalence silently.
     /// </summary>
     public static ArchitectureRule NamespacesFollowFolders { get; } =
         new("Every source file's namespace matches its folder path", RuleCoverage.Live, MeaningfulAt: 20);
+
+    /// <summary>
+    /// Live over the three test projects. A test sits in a folder named for what it covers — a
+    /// feature, mirroring <c>src/</c> — and the harness the tests share sits in <c>Common/</c>, so
+    /// a test project's root lists folders and nothing a reader has to open to place.
+    /// </summary>
+    public static ArchitectureRule TestFilesLiveInAFolder { get; } =
+        new("No source file lives at a test project's root", RuleCoverage.Live, MeaningfulAt: 3);
 
     /// <summary>
     /// Live over 6 logged events. The integration tests prove a domain event was dispatched by

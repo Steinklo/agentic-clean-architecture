@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 
-namespace Todo.IntegrationTests;
+namespace Todo.IntegrationTests.Common;
 
 /// <summary>
 /// One thing the in-process host logged, kept in the order it was logged.

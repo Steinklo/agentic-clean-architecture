@@ -2,7 +2,7 @@
 
   <!--
     Shared compiler properties for every project in the solution.
-    Declared once here so no .csproj repeats them. See AGENTS.md.
+    Declared once here so no .csproj repeats them. See docs/rules/conventions.md.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

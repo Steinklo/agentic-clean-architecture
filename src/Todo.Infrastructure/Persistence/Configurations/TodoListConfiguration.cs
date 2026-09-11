@@ -47,7 +47,7 @@ internal sealed class TodoListConfiguration : IEntityTypeConfiguration<TodoList>
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Read this before mapping a value object in ticket 06 or 07.</b>
+    /// <b>Read this before mapping another value object.</b>
     /// </para>
     /// <para>
     /// <c>ComplexProperty</c> is the natural mechanism for a value object, and on EF 10 it is not
@@ -77,7 +77,7 @@ internal sealed class TodoListConfiguration : IEntityTypeConfiguration<TodoList>
     /// <para>
     /// To restore complex types, <c>TodoList</c>'s private constructor has to stop taking value
     /// objects and take only the entity's scalars, letting EF write <c>Title</c> to its property
-    /// after construction. That is a change to Todo.Domain, which this ticket does not own.
+    /// after construction. That is a change to Todo.Domain, not to this configuration.
     /// </para>
     /// </remarks>
     private static void ConfigureTitle(EntityTypeBuilder<TodoList> builder)

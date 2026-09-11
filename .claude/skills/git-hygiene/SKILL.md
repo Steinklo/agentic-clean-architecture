@@ -83,9 +83,8 @@ node scripts/protected-paths.mjs --check $(git diff --cached --name-only)
 - Exit 2: the matcher could not run. That is not a verdict — fix the script rather than reading it
   as either answer.
 
-**A decision record is yours to write.** `docs/adr/**` is *shared*, not agent-owned, so `--check`
-passes on it: write one yourself, or state the decision and the alternative you rejected in the
-pull request body and let the agent transcribe it. Only you can promote one to `accepted`.
+**A decision record is yours to write** — records are shared, so `--check` passes on them. Who owns
+what, and why, is `docs/rules/DOC-RULES.md`.
 
 `--check` answers "may **I** write this?". There is a second mode, `--classify`, which names the
 owner instead — the documentation agent's self-check uses it, because "the agent may keep this" is
@@ -97,8 +96,9 @@ build when a pattern literal appears a second time, and a second copy that drift
 failure the guard exists to prevent.
 
 There is deliberately **no local hook** mirroring this, so an edit to an agent-owned file succeeds
-locally and fails on the pull request. Never set `PROTECTED_PATHS_BYPASS` to get past it; that
-variable belongs to the documentation agent's own workflow.
+locally and fails on the pull request. Never set `PROTECTED_PATHS_BYPASS` to get past it; it exists
+for first-time harness setup only. The matcher honours it wherever it runs, so no workflow may set
+it — in CI it would silently switch the guard off.
 
 ## 2. Merge strategy — squash to land
 

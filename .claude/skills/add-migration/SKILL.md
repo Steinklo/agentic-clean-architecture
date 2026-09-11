@@ -5,7 +5,7 @@ description: Add and review an EF Core migration in this solution. Use after cha
 
 # Add a migration
 
-EF Core 10.0.11, SQL Server, single `TodoDbContext`. Every command runs from the repository root.
+EF Core 10 (the exact version is in `Directory.Packages.props`), SQL Server, single `TodoDbContext`. Every command runs from the repository root.
 
 ## 1. Land the model change first
 
@@ -63,9 +63,9 @@ Commit the migration `.cs`, its `.Designer.cs`, and `TodoDbContextModelSnapshot.
 
 ## 5. Value objects: converter **and** comparer
 
-The `new-feature` skill's *A new value object* section has the code. What the migration must show is **one inline column** in the owning entity's own table — no second table, no shadow key — `NOT NULL`, because value objects are required here and never optional. A second table or a shadow key means it was mapped as an owned or complex type; `ComplexProperty` in particular fails at model build with `No suitable constructor was found`, before any migration is generated.
+The `new-feature` skill's *A new value object* section has the code. What the migration must show is **one inline column** in the owning entity's own table — no second table, no shadow key — `NOT NULL`, because value objects are required here and never optional. A second table or a shadow key means it was mapped as an owned or complex type.
 
-**The one thing the migration cannot tell you is the one thing most easily missed.** With `HasConversion` but no `property.Metadata.SetValueComparer(...)`, the column, its type, its length and the generated SQL are all correct while the change tracker compares by reference — updates silently missed or spuriously issued. Check the configuration, not the SQL.
+**The migration cannot show a missing comparer.** With `HasConversion` but no `property.Metadata.SetValueComparer(...)` the SQL is correct and change tracking is not — the gotcha in `docs/rules/gotchas.md` says why (`Rules.ValueObjectsHaveAConverterAndComparer`). Check the configuration, not the SQL.
 
 ## 6. An applied migration is never edited
 

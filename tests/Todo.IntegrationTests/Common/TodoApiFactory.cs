@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Todo.Infrastructure;
 
-namespace Todo.IntegrationTests;
+namespace Todo.IntegrationTests.Common;
 
 /// <summary>
 /// Hosts the real <c>Todo.Api</c> in process, pointed at the containerised SQL Server.

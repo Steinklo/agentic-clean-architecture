@@ -2,7 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Infrastructure;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Slices;
 
 /// <summary>
 /// The composition root, and the one thing in a slice that nothing discovers for you.

@@ -3,7 +3,7 @@
 //
 // The pattern list is NOT in this file. It is read from .protected-paths.json at
 // the repository root, which is the single source of truth shared with the CI
-// check (issue 14). Do not paste the patterns in here -- scripts/verify-protected-paths.mjs
+// check. Do not paste the patterns in here -- scripts/verify-protected-paths.mjs
 // fails the moment a second copy appears.
 //
 // Two modes, and they answer DIFFERENT questions. Do not derive one from the other:
@@ -19,8 +19,8 @@
 // wrong for a shared path, which both parties may write, and it is unreadable besides.
 // Ask --classify and branch on the name.
 //
-// There is NO local-hook mode, and adding one would be a mistake. AGENTS.md states
-// the rule: this guard is owned by CI and nothing else, because a hook binds Claude
+// There is NO local-hook mode, and adding one would be a mistake.
+// docs/rules/architecture.md states the rule: this guard is owned by CI and nothing else, because a hook binds Claude
 // Code alone -- not another editor, not a colleague on another tool, not a plain
 // `git commit` -- so a hook-only rule is a habit rather than a rule. A hook here
 // would be a second enforcement point with its own definition, which is exactly
@@ -28,9 +28,10 @@
 // .github/scripts/protected-paths-guard.sh shells out to this script, and so does
 // the git-hygiene skill.
 //
-// Escape hatch: PROTECTED_PATHS_BYPASS=1 turns a violation into a pass. The
-// documentation agent sets it in .github/workflows/docs.yml; a maintainer sets it
-// when setting the harness up for the first time. It never suppresses an exit 2.
+// Escape hatch: PROTECTED_PATHS_BYPASS=1 turns a --check violation into a pass. A
+// maintainer sets it when setting the harness up for the first time; no workflow
+// sets it, because the documentation agent is exempted by commit authorship
+// instead. It never suppresses an exit 2.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

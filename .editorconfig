@@ -11,6 +11,10 @@ trim_trailing_whitespace = true
 [*.{json,yml,yaml,md}]
 indent_size = 2
 
+# LF, to agree with .gitattributes: the workflows and the guard script run on Linux.
+[*.{yml,yaml,sh}]
+end_of_line = lf
+
 [*.{csproj,props,targets}]
 indent_size = 2
 

@@ -9,7 +9,7 @@ using Respawn.Graph;
 using Testcontainers.MsSql;
 using Todo.Infrastructure.Persistence;
 
-namespace Todo.IntegrationTests;
+namespace Todo.IntegrationTests.Common;
 
 /// <summary>
 /// Owns the one SQL Server container and the one API host that the whole integration suite shares.

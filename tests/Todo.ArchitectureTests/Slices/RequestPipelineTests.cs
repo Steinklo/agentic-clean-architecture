@@ -1,7 +1,7 @@
 using FluentValidation;
 using Todo.Domain.Common;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Slices;
 
 /// <summary>
 /// The request pipeline, and the three ways a slice can be wired up wrongly without anything

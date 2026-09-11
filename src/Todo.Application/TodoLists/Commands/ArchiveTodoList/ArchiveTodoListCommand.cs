@@ -62,8 +62,8 @@ internal sealed class ArchiveTodoListHandler(ITodoListRepository todoLists, IUni
 
     /// <summary>
     /// This handler's own answer when there is no such aggregate, written beside the guard that
-    /// raises it. The code string is shared with the other TodoList use cases because callers -
-    /// and <c>docs/api.md</c> - see one <c>TodoList.NotFound</c> whichever route produced it.
+    /// raises it. The code string is shared with the other TodoList use cases because callers see
+    /// one <c>TodoList.NotFound</c> whichever route produced it.
     /// </summary>
     private static DomainError TodoListNotFound(Guid todoListId) => DomainError.NotFound(
         "TodoList.NotFound",

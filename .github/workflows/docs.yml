@@ -1,4 +1,4 @@
-# The documentation agent -- the regeneration half of the documentation guard (issue 15).
+# The documentation agent -- the regeneration half of the documentation guard.
 #
 # .github/workflows/protected-paths.yml is the half that says "you may not hand
 # edit these files". This is the half that says "you do not have to": on every
@@ -38,8 +38,8 @@
 # forbids and scripts/verify-protected-paths.mjs fails the build over. Every
 # skip in this workflow is therefore decided *inside* the job, after the check
 # run already exists, so the check always reports a status and can safely be
-# made a required one (issue 13's lesson: a check that vanishes is worse than a
-# check that reports "nothing to do").
+# made a required one (a check that vanishes is worse than a check that
+# reports "nothing to do").
 
 name: docs
 
@@ -68,19 +68,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # ----------------------------------------------------- THE DOCUMENTATION GUARD
-  # This is the agent's half of the exemption, and it belongs HERE and nowhere
-  # else. claude-code-action runs Claude Code inside this workspace, which loads
-  # .claude/settings.json and with it the PreToolUse hook -- the same hook that
-  # denies a human's Edit against an agent-owned path. Without this, the agent
-  # would be blocked from writing the very files it exists to maintain.
-  #
-  # It must NOT be set in .github/workflows/protected-paths.yml: the matcher
-  # honours this variable in --check mode too, so setting it there would
-  # silently turn the guard into a no-op. That workflow exempts this agent by
-  # commit authorship instead -- see .github/scripts/protected-paths-guard.sh.
-  PROTECTED_PATHS_BYPASS: "1"
-
   # The loop guard's marker, and the two trailers that carry it.
   #
   # AGENT_TRAILER_PREFIX is what the loop guard matches, and it must stay a PREFIX
@@ -198,10 +185,10 @@ jobs:
       # dance and no token in a remote URL.
       #
       # The App needs exactly three permissions, and docs/setup.md
-      # (issue 17) asks for exactly these:
+      # asks for exactly these:
       #   Contents:      read & write  -- check out the branch, push the commit
       #   Pull requests: read & write  -- read pull request context; shared with
-      #                                   the review agent (issue 16)
+      #                                   the review agent (pr-review.yml)
       #   Metadata:      read-only     -- mandatory for every GitHub App
       - name: Mint a GitHub App installation token
         id: app-token
@@ -246,7 +233,8 @@ jobs:
       # Authorship is checked too, so that a human who happens to paste the
       # trailer into a commit message cannot switch the agent off.
       #
-      # One human commit therefore produces at most one agent commit: after the
+      # One human push therefore produces at most one agent run's worth of
+      # commits -- a regenerated map, a proposed record, or one of each: after the
       # push the head is the agent's, the next run stops here, and the run after
       # that only happens because a human pushed again.
       - name: Decide whether this run would be regenerating its own work
@@ -428,8 +416,8 @@ jobs:
           # The step above should make that cheaper, since the agent is handed the
           # change set instead of reconstructing it. The ceiling stays raised
           # anyway: it exists to stop a confused run, and 40 was tight enough to
-          # catch a working one. pr-review already sits at 60 and is the smaller
-          # job of the two.
+          # catch a working one. pr-review sits at 70 and is the smaller job of
+          # the two.
           claude_args: '--allowedTools "Read,Glob,Grep,Edit,Write" --max-turns 80'
           prompt: |
             You are the documentation agent for this repository, running on pull
@@ -442,7 +430,7 @@ jobs:
             this prompt and that file disagree, that file wins.
 
             THE ONE DISTINCTION THAT MATTERS. This repository separates rules
-            from maps. Rules live in `docs/` and say how things must be built;
+            from maps. Rules live in `docs/rules/` and say how things must be built;
             people write them, and you never do. Maps are the `AGENTS.md` files
             and say what exists and where; they change whenever code changes,
             which is why they are yours. You are here to keep the maps true, not
@@ -462,7 +450,7 @@ jobs:
                the source tree itself and not from the map's own previous text.
                A map is an index: what exists, where it lives, in a table where a
                table will do. Never explain why -- that is a rule, and it is
-               already written in `docs/`. Link there and stop.
+               already written in `docs/rules/`. Link there and stop.
             3. Apply the decision-record gate in DOC-RULES.md. It is meant to be
                failed: almost every pull request needs no record at all. If it
                genuinely passes, add ONE new file under `docs/adr/`, following
@@ -509,7 +497,8 @@ jobs:
                request, and never `TEMPLATE.md`.
 
             You may write exactly two things: the `AGENTS.md` maps, and one file
-            under `docs/adr/`. Nothing else -- not `docs/` itself, not
+            under `docs/adr/`. Nothing else -- not `docs/rules/` or anything
+            else in `docs/`, not
             `.claude/`, not `README.md`, `src/`, `tests/`, build files or
             anything under `.github/`. A step after you checks this and fails the
             run if you wrote anywhere else, so a slip is caught rather than
@@ -549,12 +538,6 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          # Cleared for this step alone, as the verify step below does. It no longer
-          # strictly matters -- this step now asks --classify, which reports ownership
-          # and honours no bypass, because there is no verdict to bypass. Kept cleared
-          # so that a future edit reaching for --check again cannot silently inherit
-          # the workflow-level "1" and pass everything.
-          PROTECTED_PATHS_BYPASS: ""
         run: |
           set -euo pipefail
 
@@ -655,7 +638,7 @@ jobs:
               for file in "${trespass[@]}"; do echo "  - \`${file}\`"; done
               echo
               echo 'Anything it wrote inside its own files still lands, so the maps stay current.'
-              echo '`docs/` and `.claude/` state the rules and belong to people; if a rule is wrong,'
+              echo '`docs/rules/` and `.claude/` state the rules and belong to people; if a rule is wrong,'
               echo 'a human changes it.'
               echo
               echo 'This is worth reading rather than ignoring: the agent was told in its prompt not'
@@ -821,13 +804,11 @@ jobs:
       # right while the agent could only ever make one commit and quietly stopped
       # covering the record commit once it could make two.
       #
-      # PROTECTED_PATHS_BYPASS is cleared for this step alone. The matcher
-      # honours it in --check mode, so leaving the workflow-level "1" in place
-      # would make this verify nothing at all.
+      # PROTECTED_PATHS_BYPASS must never be set on this workflow. The matcher
+      # honours it in --check mode, so it would make this verify nothing at all.
       - name: Verify the agent's commits satisfy the protected-path guard
         if: ${{ steps.commit.outputs.committed == 'true' }}
         env:
-          PROTECTED_PATHS_BYPASS: ""
           BASE_SHA: HEAD~${{ steps.commit.outputs.commits }}
           HEAD_SHA: HEAD
           AGENT_COMMITS: ${{ steps.commit.outputs.commits }}

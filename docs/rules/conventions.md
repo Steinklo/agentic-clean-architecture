@@ -9,7 +9,8 @@ placement.
 Versions live in `Directory.Packages.props` and shared compiler properties in
 `Directory.Build.props`; read them there. What those files do not tell you:
 
-- **.NET 10** (`net10.0`), SDK 10.0.302, and **deliberately no `global.json`**.
+- **.NET 10** (`net10.0`), with the SDK version pinned once, in `.github/workflows/build.yml`, and
+  **deliberately no `global.json`**.
 - The solution file is **`Todo.slnx`** — the .NET 10 XML format, **not** `.sln`. Tooling that
   assumes `.sln` will not find it.
 - Mediator is `martinothamar/Mediator` — **source-generated CQRS, not MediatR**, and the two
@@ -61,4 +62,7 @@ necessary and never sufficient.
 - Ids are `Guid.CreateVersion7()`, minted by the domain
   (`Rules.EntityKeysAreNeverDatabaseGenerated` keeps the database out of it).
 - DTOs are records with an explicit `static FromDomain(...)`. **No AutoMapper or Mapster.**
-- Test naming: `Method_Scenario_ExpectedResult`. The test tree mirrors the production tree.
+- Test naming: `Method_Scenario_ExpectedResult`. The test tree mirrors the production tree:
+  **no source file sits at a test project's root** (`Rules.TestFilesLiveInAFolder`). A test goes
+  in a folder named for the feature it covers, the harness the tests share goes in `Common/`, and
+  namespaces follow those folders like anywhere else.

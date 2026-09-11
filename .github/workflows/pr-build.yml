@@ -1,4 +1,4 @@
-# Build and test every pull request (issue 13).
+# Build and test every pull request.
 #
 # Two checks, both delegating to .github/workflows/build.yml. Their context strings (see the CHECK
 # NAMES note in build.yml) are "build & unit tests / test" and "integration tests / test" -- this

@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 #
-# CI half of the documentation guard (issue 14).
+# CI half of the documentation guard.
 #
 # WHAT THIS DOES NOT DO: it does not know which paths are guarded, and it must
 # never learn. The list lives in exactly one file, .protected-paths.json, and is
-# interpreted by exactly one matcher, scripts/protected-paths.mjs, which
-# the local PreToolUse hook uses too. This script only decides *which files to
-# hand that matcher*, then reports what it says. The guard's design calls out two copies
+# interpreted by exactly one matcher, scripts/protected-paths.mjs. This script
+# only decides *which files to hand that matcher*, then reports what it says. The guard's design calls out two copies
 # of the list drifting apart as the failure mode to avoid, and
 # scripts/verify-protected-paths.mjs fails the build if a pattern literal is
 # ever pasted into this directory.
@@ -17,7 +16,7 @@
 #   BOT_AUTHORS  optional, default '\[bot\]'. Case-insensitive extended regex
 #                matched against "Author Name <author@email>" of each commit.
 #
-# ------------------------------------------------------------------ issue 15
+# -----------------------------------------------------------------------------
 # HOW THE DOCUMENTATION AGENT STAYS UNBLOCKED
 #
 # Exemption here is decided **per commit, by author identity** -- not by
@@ -35,11 +34,10 @@
 # different identity, set BOT_AUTHORS in the workflow rather than changing code
 # here.
 #
-# PROTECTED_PATHS_BYPASS=1 is the *other* half of the agent's exemption: it
-# belongs in the agent's own workflow, where Claude Code edits agent-owned files
-# and the local hook would otherwise deny the write. Do not set it in this
-# workflow -- the matcher honours it in --check mode too, so setting it here
-# would silently turn this guard into a no-op.
+# Authorship is the agent's whole exemption; PROTECTED_PATHS_BYPASS plays no
+# part in it. Do not set that variable in any workflow that runs this script --
+# the matcher honours it in --check mode, so it would silently turn this guard
+# into a no-op.
 # -----------------------------------------------------------------------------
 
 set -euo pipefail
@@ -115,8 +113,8 @@ echo
 
 # The single source of truth decides. Exit 1 and a per-path report on stderr
 # means at least one path is protected; the report already names the path, its
-# owner and what to do instead, taken from .protected-paths.json, so both this
-# check and the local hook say exactly the same thing.
+# owner and what to do instead, taken from .protected-paths.json, so this check
+# and a local `--check` run say exactly the same thing.
 report="$(mktemp)"
 if node "${MATCHER}" --check "${files[@]}" 2>"${report}"; then
   echo "OK: no protected path was touched by a human-authored commit."

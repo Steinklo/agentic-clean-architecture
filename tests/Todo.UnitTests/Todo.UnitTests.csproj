@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
@@ -17,8 +16,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Todo.Domain\Todo.Domain.csproj" />
-    <ProjectReference Include="..\..\src\Todo.Application\Todo.Application.csproj" />
-    <ProjectReference Include="..\..\src\Todo.Infrastructure\Todo.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

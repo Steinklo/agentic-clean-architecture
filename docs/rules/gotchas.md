@@ -28,11 +28,9 @@ suite catches it whether or not anyone read this file.
 
 ## Mediator
 
-- **Pipeline behaviours are not auto-discovered.** They must be listed, outermost first, in
-  `options.PipelineBehaviors` inside `AddMediator`. A behaviour written, registered in DI and left
-  off that list **silently never runs** — precisely the dead-validation defect this template exists
-  to avoid. This is the one silent failure in the request pipeline with no rule behind it, because
-  nothing but reading that list can see it.
+- **Pipeline behaviours are not auto-discovered.** One left off `options.PipelineBehaviors` in
+  `AddMediator` silently never runs, and no rule can catch it — see
+  [`layers/Todo.Application.md`](layers/Todo.Application.md#what-fails-silently-here).
 - **Every notification type needs a handler**, or the generator emits `MSG0005`, which is an error
   here because warnings are errors. Raise a domain event and you must handle it.
 

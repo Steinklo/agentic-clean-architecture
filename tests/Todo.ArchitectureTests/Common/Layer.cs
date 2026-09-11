@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Common;
 
 /// <summary>
 /// One project in the layered architecture, paired with the two things the rules need in order to

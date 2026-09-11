@@ -1,7 +1,7 @@
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Conventions;
 
 /// <summary>
 /// Logged event ids, which are a test contract here and not just diagnostics.

@@ -1,4 +1,4 @@
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Slices;
 
 /// <summary>
 /// Handler naming. A handler that is not called <c>*Handler</c> is invisible to anyone scanning
@@ -8,7 +8,7 @@ public sealed class HandlerNamingTests
 {
     /// <summary>
     /// Rule: <see cref="Rules.RequestHandlersAreNamedHandler"/>.
-    /// Live since ticket 05 added the first request handlers. See <see cref="RuleCoverage"/> for
+    /// Live since the CreateTodoList and GetTodoList slices added the first request handlers. See <see cref="RuleCoverage"/> for
     /// why coverage is declared rather than left to look like a passing rule.
     /// </summary>
     [Fact]

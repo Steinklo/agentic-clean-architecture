@@ -11,7 +11,7 @@ namespace Todo.UnitTests.Common;
 /// impossible there because two members cannot share a name. Now that each error is written inline
 /// at the guard that raises it, nothing structural stops two guards from shipping the same code for
 /// two different rules - which is the one failure mode inlining introduces, because a code is the
-/// contract the integration tests and <c>docs/api.md</c> assert on.
+/// contract callers and the integration tests match on (<c>docs/rules/conventions.md</c>).
 /// </para>
 /// <para>
 /// <b>Why the source and not reflection.</b> Reflection was the first idea and it cannot work: an

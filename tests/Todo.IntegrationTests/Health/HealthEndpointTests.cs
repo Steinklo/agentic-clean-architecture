@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace Todo.IntegrationTests;
+namespace Todo.IntegrationTests.Health;
 
 /// <summary>
 /// Proves the whole seam: real HTTP, real host, real containerised SQL Server.

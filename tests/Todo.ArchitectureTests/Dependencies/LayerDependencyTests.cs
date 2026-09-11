@@ -1,4 +1,4 @@
-namespace Todo.ArchitectureTests;
+namespace Todo.ArchitectureTests.Dependencies;
 
 /// <summary>
 /// The project reference graph: which layer is allowed to know that which other layer exists.

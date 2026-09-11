@@ -1,4 +1,4 @@
-namespace Todo.IntegrationTests;
+namespace Todo.IntegrationTests.Common;
 
 /// <summary>
 /// Base class for every integration test: a fresh client against an empty database.

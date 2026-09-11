@@ -29,6 +29,7 @@ Feature per aggregate, then a folder per use case. `<Feature>` is the **plural**
 | Endpoints, and the feature's `<Aggregate>Endpoint.cs` base class | `src/Todo.Api/Endpoints/<Feature>/` |
 | HTTP tests | `tests/Todo.IntegrationTests/<Feature>/<Thing>EndpointTests.cs` |
 | Aggregate tests | `tests/Todo.UnitTests/<Feature>/<Aggregate>Tests.cs` |
+| Test harness shared across features | `tests/<TestProject>/Common/` — nothing sits at a test project's root (`Rules.TestFilesLiveInAFolder`) |
 
 **Create the use-case folder**; files loose in `Commands/` are wrong (`Rules.RequestsLiveInAUseCaseFolder`). DTOs are the exception because they are shared — `TodoListDto` is returned by both `CreateTodoList` and `GetTodoList`, so it belongs to neither folder (`Rules.DtosLiveInTheirFeaturesDtosNamespace`).
 
@@ -44,7 +45,7 @@ Copy `src/Todo.Domain/TodoLists/TodoList.cs`. It must have all of:
 - A **private** constructor taking `Guid id` and its value objects, chaining `: base(id)`. Never a parameterless one beside it: EF binds the constructor with the fewest property parameters, so an empty one would win.
 - Every property `{ get; private set; }` (`Rules.EntitiesHaveNoPublicSetters`). Child collections are `IReadOnlyCollection<T>` over a `private readonly List<T> _items = [];` you initialise yourself; EF writes the field.
 - `public static Result<<Aggregate>> Create(...)` taking **scalars only**: call each value object's `Create`, return `Result.Failure<T>(x.Error)` on the first failure, mint the id with `Guid.CreateVersion7()`, `RaiseDomainEvent(new <Aggregate>CreatedEvent(...))`, return `Result.Success(instance)`.
-- Every state transition is a method returning `Result` or `Result<T>`, with its `DomainError` constructed **inline at the guard that rejects**. Choose the category deliberately — it is the only thing deciding the caller's status: `Validation` → 400, `NotFound` → 404, `Conflict` → 409, `Failure` → 500. A refused transition is a `Conflict`. **Adding a member to `DomainErrorType` is not a compile error and cannot be made into one**, so a new category with no arm in `ResultExtensions.StatusCodeFor` reaches callers as a silent 500 — add the arm in the same change.
+- Every state transition is a method returning `Result` or `Result<T>`, with its `DomainError` constructed **inline at the guard that rejects**. Choose the category deliberately — it alone decides the caller's status, through the one translation `docs/rules/layers/Todo.Api.md` sets out. A refused transition is a `Conflict`. **Adding a member to `DomainErrorType` is not a compile error and cannot be made into one**, so a new category with no arm in `ResultExtensions.StatusCodeFor` reaches callers as a silent 500 — add the arm in the same change.
 - Dotted error codes, unique across `Todo.Domain` — `ErrorCodeUniquenessTests` scans its source for `DomainError.<Category>("literal"` and fails on a repeat. One rule rejecting at two entry points is written once in a private helper returning `DomainError?`, as `TodoList.ArchivedRejection()` does.
 
 In the same change it then needs a creation event and handler (§5), an EF configuration (§2b), a repository (§8), a migration (`add-migration` skill), and an endpoint base class (§10).
@@ -166,7 +167,7 @@ Derive from the feature's base class and implement `MapEndpoint`. **No registrat
 Every endpoint derives from that base (`Rules.EndpointsDeriveFromTheirFeatureBase`), so a **new feature needs its base class first**: `internal abstract class <Aggregate>Endpoint : IEndpoint` — singular, like `TodoListEndpoint` — with `GroupPrefix => "/api/<kebab-plural>"` and `GroupTag => "<Feature>"`. Endpoints sharing a prefix are mapped into one route group, so both are stated once and cannot drift.
 
 - **Bind, send, translate. Nothing else** — no validation, no branching on the result, no logic. `ArgumentNullException.ThrowIfNull(group)` is the first line of every `MapEndpoint`; CA1062 is off but every endpoint does it.
-- **Never name an HTTP status code outside `src/Todo.Api/Common/ResultExtensions.cs`.** `DomainErrorType` drives the status through the single `StatusCodeFor` ladder; the endpoint chooses only the *shape of success* — `ToOk()`, `ToCreated(location)` or `ToNoContent()`. Copying an error-to-status ladder into an endpoint is the specific defect this template exists to avoid.
+- **Never name an HTTP status code outside `src/Todo.Api/Common/ResultExtensions.cs`.** `DomainErrorType` drives the status through the single `StatusCodeFor` ladder; the endpoint chooses only the *shape of success* — `ToOk()`, `ToCreated(location)` or `ToNoContent()`. The rule is `docs/rules/layers/Todo.Api.md`'s.
 - **`Produces` / `ProducesProblem` are the one exception** — OpenAPI metadata, not a decision. List every status the slice can return, the domain's included.
 - **When the route carries part of the command**, declare an `internal sealed record <Name>Request(...)` for the remaining body in the same file and assemble the command in the lambda; when the body *is* the whole command, bind the command directly.
 - **Route shape.** A named transition the domain may refuse is its own sub-resource reached with `POST` — `POST /{id}/archive` — never a `PATCH` setting a field.
@@ -212,10 +213,10 @@ Match the local conventions: request URIs are `Uri` objects from a private `stat
 
 Editing one of these means checking you have not gone off the path:
 
-- **`src/Todo.Application/ConfigureServices.cs`** — handlers and validators are found automatically. The *only* reason to edit it is a new **pipeline behaviour**, which is not auto-discovered: it must be added to `options.PipelineBehaviors`, outermost first, or it is written, registered and silently never runs.
+- **`src/Todo.Application/ConfigureServices.cs`** — handlers and validators are found automatically. The *only* reason to edit it is a new **pipeline behaviour**: add it to `options.PipelineBehaviors`, outermost first. Why that list is the wiring is in `docs/rules/layers/Todo.Application.md`.
 - **`TodoDbContext.cs`**, **`EndpointExtensions.cs`**, **`Program.cs`** — configurations and endpoints arrive by assembly scan.
 - **`ResultExtensions.cs`** — edited only for a new *success shape*, or when a new `DomainErrorType` makes its switch incomplete.
-- **`AGENTS.md` and `CLAUDE.md`** — maps, regenerated by the documentation agent on the pull request. Change the code and let the map follow. `docs/rules/` is the opposite: human-owned, and the agent never writes there. `docs/adr/` is neither — it is shared, so a decision record is yours to write as well as the agent's to propose, and only you may promote one to `accepted`. See the `git-hygiene` skill.
+- **`AGENTS.md` and `CLAUDE.md`** — maps, regenerated by the documentation agent on the pull request. Change the code and let the map follow. Who owns `docs/rules/` and `docs/adr/` is in `docs/rules/DOC-RULES.md`.
 - **A decision record, if this slice took a real decision** — do not write one *instead* of filling in the pull request's `## Decision record` section. Fill that in, naming the alternative you rejected, and the agent transcribes it as `reasoning: authored`. Leave it blank and it may file the record with an alternative it inferred from your diff, marked `reasoning: reconstructed`. Almost no feature slice needs one; `docs/rules/DOC-RULES.md` owns the gate.
 - **Any existing migration** — the `add-migration` skill.
 
