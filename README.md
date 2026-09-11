@@ -35,7 +35,7 @@ and is stopped. The features are deliberately trivial — the harness around the
 
 | | Issue | Pull request | What the harness did |
 |---|---|---|---|
-| ✅ | [#22](https://github.com/Steinklo/agentic-clean-architecture/issues/22) | [#26](https://github.com/Steinklo/agentic-clean-architecture/pull/26) | A second feature, built inside the rules. Four architecture rules promote themselves from *thin* to *live*, every check goes green, and the documentation agent regenerates the maps and proposes a decision record on top of the one human commit. |
+| ✅ | [#22](https://github.com/Steinklo/agentic-clean-architecture/issues/22) | [#26](https://github.com/Steinklo/agentic-clean-architecture/pull/26) | A second feature, built inside the rules. Four architecture rules outgrow *thin* and the suite forces their promotion to *live*, every check goes green, and the documentation agent regenerates the maps and proposes a decision record on top of the one human commit. |
 | ❌ | [#23](https://github.com/Steinklo/agentic-clean-architecture/issues/23) | [#27](https://github.com/Steinklo/agentic-clean-architecture/pull/27) | The same kind of change, built the wrong way on purpose. The architecture check fails on exactly its three mistakes and nothing else, every other check passes, and the review agent names the rule each one breaks. |
 
 Both stay open for good and are never merged. Each starts from one human commit; what the agent adds
