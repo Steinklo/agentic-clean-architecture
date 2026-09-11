@@ -28,6 +28,21 @@ safe to hand over without ever touching the rules underneath it.
 
 ---
 
+## 🔍 See it work
+
+Two real pull requests from two real issues: one follows the rules and gets through, one breaks them
+and is stopped. The features are deliberately trivial — the harness around them is the point.
+
+| | Issue | Pull request | What the harness did |
+|---|---|---|---|
+| ✅ | [#22](https://github.com/Steinklo/agentic-clean-architecture/issues/22) | [#26](https://github.com/Steinklo/agentic-clean-architecture/pull/26) | A second feature, built inside the rules. Four architecture rules outgrow *thin* and the suite forces their promotion to *live*, every check goes green, and the documentation agent regenerates the maps and proposes a decision record on top of the one human commit. |
+| ❌ | [#23](https://github.com/Steinklo/agentic-clean-architecture/issues/23) | [#27](https://github.com/Steinklo/agentic-clean-architecture/pull/27) | The same kind of change, built the wrong way on purpose. The architecture check fails on exactly its three mistakes and nothing else, every other check passes, and the review agent names the rule each one breaks. |
+
+Both stay open for good and are never merged. Each starts from one human commit; what the agent adds
+on top depends on what it finds — a map and a decision record on the first, only a map on the second.
+
+---
+
 ## ⚙️ How it works
 
 ### 📘 Rules, 🗺️ maps, and 📝 records
@@ -121,16 +136,8 @@ the whole domain: one real cross-item invariant, so the aggregate boundary earns
 
 It's here to demonstrate the patterns, not to be a product. Rename it and it's yours.
 
-**Two real pull requests, not a description of what would happen:**
-
-| | Issue | Pull request | What it shows |
-|---|---|---|---|
-| ✅ | [#6](https://github.com/Steinklo/agentic-clean-architecture/issues/6) | [#11](https://github.com/Steinklo/agentic-clean-architecture/pull/11) | A real feature, built inside the rules. Every check is green, and the documentation agent's own commit regenerates `AGENTS.md` on top of the human one — the map catching up to the code, automatically. |
-| ❌ | [#14](https://github.com/Steinklo/agentic-clean-architecture/issues/14) | [#15](https://github.com/Steinklo/agentic-clean-architecture/pull/15) | The same shape, built the wrong way on purpose — an ORM type where it doesn't belong, a request in the wrong folder, a layer skipped entirely. `architecture` fails for exactly those reasons and stays that way; every other check still passes. Left open as a permanent example. |
-
-Both pull requests start from exactly one human commit. What the agent adds on top differs — #11's
-501 decision needed a proposed record alongside the regenerated map, #15's didn't — because that's
-what the agent's job actually is: react to what's there, not add a fixed number of commits.
+Two pull requests show it being extended — one inside the rules, one outside them — in
+[See it work](#-see-it-work).
 
 </details>
 
