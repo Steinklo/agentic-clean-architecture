@@ -23,5 +23,6 @@ An applied migration is never edited; a local hook refuses the write.
 
 ## Composition
 
-`ConfigureServices.cs` — the `DbContext` against SQL Server, `IDatabaseConnectivity`, and one
-`AddScoped` per repository plus the unit of work. The only file a new aggregate adds a DI line to.
+`ConfigureServices.cs` — the `DbContext` against SQL Server (also registered under its base
+`DbContext` type), `IDatabaseConnectivity`, and one `AddScoped` per repository plus the unit of
+work. The only file a new aggregate adds a DI line to.

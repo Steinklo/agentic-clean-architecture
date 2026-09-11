@@ -27,7 +27,7 @@ any of them is incomplete.
 | | |
 |---|---|
 | Aggregate | `src/Todo.Domain/TodoLists/` — `TodoList`, child entity `TodoItem`, value objects `TodoListTitle` and `TodoItemDescription`, events for created / item-completed / archived |
-| Use cases | `src/Todo.Application/TodoLists/` — commands `CreateTodoList`, `AddTodoItem`, `CompleteTodoItem`, `ArchiveTodoList`; query `GetTodoList` |
+| Use cases | `src/Todo.Application/TodoLists/` — commands `CreateTodoList`, `AddTodoItem`, `CompleteTodoItem`, `ArchiveTodoList`; queries `GetTodoList`, `CountIncompleteItems` |
 | Persistence | `src/Todo.Infrastructure/Persistence/` — `TodoListConfiguration`, `TodoItemConfiguration`, `TodoListRepository` |
 | HTTP | `src/Todo.Api/Endpoints/TodoLists/` — one endpoint per use case, under `/api/todo-lists` |
 | Tests | `tests/Todo.IntegrationTests/TodoLists/` and `tests/Todo.UnitTests/TodoLists/` |

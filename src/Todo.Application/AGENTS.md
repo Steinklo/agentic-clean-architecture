@@ -15,8 +15,11 @@ here.
 | `CompleteTodoItemCommand` | `Commands/CompleteTodoItem/` | `Result` |
 | `ArchiveTodoListCommand` | `Commands/ArchiveTodoList/` | `Result` |
 | `GetTodoListQuery` | `Queries/GetTodoList/` | `Result<TodoListDto>` |
+| `CountIncompleteItemsQuery` | `TodoLists/CountIncompleteItems.cs` — loose at the feature root, not in a use-case folder | `Result<int>` |
 
 Each folder holds the request, its handler in the same file, and its validator beside them.
+`CountIncompleteItemsHandler` also takes the base EF Core `DbContext` directly instead of going
+through a repository.
 
 | | |
 |---|---|
