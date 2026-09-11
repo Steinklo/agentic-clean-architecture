@@ -15,6 +15,7 @@ OpenAPI tag `TodoLists`.
 | `POST` | `/api/todo-lists/{todoListId:guid}/items` | `AddTodoItemEndpoint` |
 | `POST` | `/api/todo-lists/{todoListId:guid}/items/{todoItemId:guid}/complete` | `CompleteTodoItemEndpoint` |
 | `POST` | `/api/todo-lists/{todoListId:guid}/archive` | `ArchiveTodoListEndpoint` |
+| `GET` | `/api/todo-lists/{todoListId:guid}/incomplete-count` | `GetIncompleteItemCountEndpoint` |
 
 `/health` is mapped in `Program.cs` and reports real database connectivity.
 
