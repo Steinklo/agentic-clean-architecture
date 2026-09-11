@@ -41,7 +41,8 @@ safe to hand over without ever touching the rules underneath it.
 An agent that could edit the rules could rewrite the standard it's measured against. It can't, and
 that's enforced both ways: CI fails a human commit that edits a map, and the documentation agent
 discards anything it wrote outside what it owns before it ever pushes — the overstep is undone, not
-allowed to block the rest of what it got right.
+allowed to block the rest of what it got right. The full contract is
+[`docs/rules/DOC-RULES.md`](docs/rules/DOC-RULES.md).
 
 > [!TIP]
 > **Records are shared because neither side can write one alone.** You hold the reasoning; the agent
@@ -79,7 +80,7 @@ and labelled as advice.
 | `pr-build` | Builds and runs every test suite. |
 | `protected-paths` | Fails when a human-authored commit edits a map. |
 | `docs` | Regenerates the maps from the code, proposes a record when a decision needs one — and discards, rather than pushes, anything it wrote outside those two things. |
-| `pr-review` | Reviews the diff against `docs/`, before a human spends attention on it. |
+| `pr-review` | Reviews the diff against `docs/rules/`, before a human spends attention on it. |
 | `build` | The single build definition the others call. |
 
 `protected-paths` and `docs` are two halves of one idea: the map can't be hand-edited, and can't go

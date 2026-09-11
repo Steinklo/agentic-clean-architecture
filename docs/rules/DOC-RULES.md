@@ -10,18 +10,22 @@ Everything written down here is one of these, and which one decides who may writ
 
 | | | |
 |---|---|---|
-| **Rules** | `docs/` | How things must be built. Authored by people. Change when a *decision* changes, never because code changed. |
+| **Rules** | `docs/rules/` | How things must be built. Authored by people. Change when a *decision* changes, never because code changed. |
 | **Maps** | the `AGENTS.md` files | What exists and where it lives. Change every time a feature lands — which is why the agent maintains them. |
 | **Records** | `docs/adr/` | Why a decision was taken. Written once and left alone. **Either may author one**; only a person may promote one to `accepted`. |
 
-**The agent writes maps. It does not write rules.** It reads `docs/` to know what is true and
-never edits a word of it, with exactly one exception: records, under the gate below.
+`docs/setup.md` is none of the three: a guide to getting the harness running, which nothing is
+measured against.
+
+**The agent writes maps. It does not write rules.** It reads `docs/rules/` to know what is true
+and never edits a word of it. Records sit outside that directory, in `docs/adr/`, and are the one
+kind of document it shares with people, under the gate below.
 
 That asymmetry is the point. An agent that could edit the rules could rewrite the standard it is
 measured against, and the drift would be invisible because both sides moved together.
 
 If you are a human and a map says something wrong, **change the code** — the map follows. If a
-*rule* is wrong, edit it here in `docs/`; that whole directory is yours.
+*rule* is wrong, edit it here in `docs/rules/`; that whole directory is yours.
 
 ## The maps the agent maintains
 
@@ -38,15 +42,16 @@ them all the same, so a map you do not maintain would belong to nobody.
 
 **Every map is re-derivable from the code alone.** A regeneration run should reconstruct it
 without reading the previous version. If the agent cannot derive a statement from the source
-named, that statement does not belong in a map — it is probably a rule, and rules live in `docs/`.
+named, that statement does not belong in a map — it is probably a rule, and rules live in
+`docs/rules/`.
 
 ## The form a map is written in
 
 **Short. A map is an index, not an essay.** These are the constraints, and they are rules:
 
-- **Never explain why.** The reason a thing is done this way is a rule and lives in `docs/`. A map
-  that starts justifying itself has become a second copy of the rules, and the two will drift.
-- **Never restate a rule.** Link to the `docs/` file that owns it and stop. One sentence at the
+- **Never explain why.** The reason a thing is done this way is a rule and lives in `docs/rules/`.
+  A map that starts justifying itself has become a second copy of the rules, and the two will drift.
+- **Never restate a rule.** Link to the `docs/rules/` file that owns it and stop. One sentence at the
   top of each map pointing at its rules file is enough.
 - **Prefer a table to a paragraph.** Most of a map is *name → location*, which is a table.
 - **Name what exists, not what should.** "Five commands under `TodoLists/Commands/`" is a map.
@@ -59,7 +64,7 @@ named, that statement does not belong in a map — it is probably a rule, and ru
 
 ## What the agent must never touch
 
-Everything except the maps and `docs/adr/`. In particular: `docs/` itself, `.claude/`,
+Everything except the maps and `docs/adr/`. In particular: `docs/rules/`, `docs/setup.md`, `.claude/`,
 `README.md`, `src/`, `tests/`, and the build files. `.protected-paths.json` is the single source
 of truth for the guard and is never the agent's to edit — and `docs/adr/TEMPLATE.md` is the record
 *form*, which the agent fills in and never redesigns.
@@ -99,7 +104,7 @@ Miss any one of the three and there is no ADR.
 
 **Records do not restate the template's existing choices.** Why the dependency rule points inward,
 why there are two testing seams, why `DomainError` is not called `Error` — all of that is already
-stated as a rule in `docs/` and beside the code it constrains, and an ADR re-explaining it is a
+stated as a rule in `docs/rules/` and beside the code it constrains, and an ADR re-explaining it is a
 second copy that will drift.
 
 **Changing one of those choices is a different matter, and does qualify.** Widening

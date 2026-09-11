@@ -1,8 +1,8 @@
-# Automated pull request review against this repository's own standards (issue 16).
+# Automated pull request review against this repository's own standards.
 #
 # A human reviewer should spend their attention on judgement, not on checking
 # conventions a machine can check. This workflow reads the pull request's diff
-# and reviews it against AGENTS.md and the layering rules, posting findings as
+# and reviews it against the rules in docs/rules/, posting findings as
 # review comments anchored to the lines they are about.
 #
 # ---------------------------------------------------------------------------
@@ -47,8 +47,8 @@
 # not worth an automated review.
 #
 # So this workflow runs on `pull_request`, and skips the review on forks. The
-# skip happens **inside** the job, in a step, not in an `if:` on the job. Issue
-# 13 already paid for that lesson: a job that is skipped by an `if:` reports no
+# skip happens **inside** the job, in a step, not in an `if:` on the job. This
+# repository already paid for that lesson once: a job that is skipped by an `if:` reports no
 # status at all, so a required check would wedge every pull request it skips.
 # Here the job always runs, always reports, and simply does no work -- the
 # reason is written to the job summary where a reviewer can see it.
@@ -58,7 +58,7 @@
 # AUTHENTICATION -- SHARED WITH THE DOCUMENTATION AGENT, NOTHING NEW TO SET UP
 #
 # Claude authenticates with CLAUDE_CODE_OAUTH_TOKEN, the subscription token the
-# documentation agent (issue 15) already needs. Two agents, one secret, one
+# documentation agent already needs. Two agents, one secret, one
 # credential to set up. Note a subscription token is tied to one person's
 # plan, so every clone of this template mints its own.
 #
@@ -292,8 +292,8 @@ jobs:
 
             **Prefer this repository's documented conventions over generic C#
             or clean-architecture advice.** Where general practice and
-            `AGENTS.md` disagree, `AGENTS.md` is right and general practice is
-            wrong. Do not suggest a pattern this repository has explicitly
+            `docs/rules/` disagree, `docs/rules/` is right and general practice
+            is wrong. Do not suggest a pattern this repository has explicitly
             rejected, and do not restate a rule the repository does not hold.
 
             This prompt deliberately does **not** list those conventions. It
@@ -307,18 +307,19 @@ jobs:
             So: **read, do not recall.** Generic advice goes wrong here in four
             places, so open each before you review a line it touches.
 
-            - The **Conventions** section of `AGENTS.md` -- request naming and
+            - `docs/rules/conventions.md` -- request naming and
               return types, where a request and its handler live, DTO mapping,
               how errors are constructed, and id generation. Several of these
               look like mistakes if you are thinking of MediatR or AutoMapper,
               and are not.
-            - The **Gotchas** section of `AGENTS.md` -- the EF Core traps, each
+            - `docs/rules/gotchas.md` -- the EF Core traps, each
               written down because it already cost someone real time. Never
               review EF mapping from general knowledge: this repository pins an
               EF version whose behaviour differs from the published
               documentation, and that gap is the single most expensive trap
               here.
-            - The **Testing seams** section of `AGENTS.md` -- which seams exist
+            - The **Testing seams** section of `docs/rules/architecture.md` --
+              which seams exist
               and, more importantly, which one was considered and deliberately
               rejected. A test in the rejected seam is a finding even though it
               passes.
@@ -408,8 +409,8 @@ jobs:
             ## Tone
 
             Be specific and be brief. Every comment must name the rule it
-            enforces; a comment you cannot ground in `AGENTS.md`, a layer's
-            `AGENTS.md`, a decision record or an outright bug is a comment you
+            enforces; a comment you cannot ground in a file under `docs/rules/`,
+            `Rules.cs`, a decision record or an outright bug is a comment you
             should not post. Do not comment on formatting the build already
             enforces, do not summarise the diff back to its author, and do not
             praise. Ten precise comments are worth less than three that are

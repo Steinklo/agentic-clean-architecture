@@ -37,9 +37,6 @@
 
 ---
 
-<!-- The documentation agent writes the AGENTS.md maps on this pull request, and may
-     propose a decision record. Do not hand-edit a map - the protected-path check will
-     fail. Records are shared: you may write one too, and only you may promote one to
-     `accepted`.
-     .protected-paths.json is the source of truth for who owns what; read it there
-     rather than trusting a list in this note. -->
+<!-- The documentation agent maintains the AGENTS.md maps on this pull request; a hand
+     edit to one fails the protected-path check. Who owns what, and why:
+     docs/rules/DOC-RULES.md. -->

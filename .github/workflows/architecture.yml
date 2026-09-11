@@ -1,4 +1,4 @@
-# Architecture rules, as their own check (issue 13).
+# Architecture rules, as their own check.
 #
 # They are separate from pr-build so that a layering violation fails in seconds
 # rather than after the full Testcontainers suite has started a SQL Server

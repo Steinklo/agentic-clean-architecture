@@ -1,4 +1,4 @@
-# The one build definition in this repository (issue 13).
+# The one build definition in this repository.
 #
 # Every other workflow calls this one instead of repeating restore/build/test.
 # It is `workflow_call`-only on purpose: it has no trigger of its own, so the

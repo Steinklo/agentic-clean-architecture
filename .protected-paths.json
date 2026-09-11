@@ -1,28 +1,17 @@
 {
   "_readme": [
     "Single source of truth for the documentation guard.",
-    "Two consumers read THIS FILE and must never keep their own copy of the patterns:",
-    "  1. the CI check (it owns this rule) -> scripts/protected-paths.mjs",
-    "  2. the CI protected-path check -> .github/workflows/protected-paths.yml",
-    "The CI check should shell out to the same script rather than reimplement matching:",
-    "  node scripts/protected-paths.mjs --check <path> [<path> ...]",
-    "which exits 1 and prints one violation report per protected path.",
+    "Two consumers read THIS FILE, both through scripts/protected-paths.mjs, and neither",
+    "may keep its own copy of the patterns:",
+    "  1. the CI protected-path guard -> .github/workflows/protected-paths.yml, via --check",
+    "  2. the documentation agent's self-check -> .github/workflows/docs.yml, via --classify",
     "`node scripts/verify-protected-paths.mjs` fails if a consumer hardcodes a copy."
   ],
 
   "model": [
-    "Three kinds of document, split by how often they change and who therefore writes them.",
-    "RULES (docs/) say how things must be built. People author them; they change when a",
-    "decision changes, not when code does. The agent reads them and never writes them.",
-    "MAPS (the AGENTS.md files) say what exists and where. They change every time a feature",
-    "lands, which is why the agent maintains them and people do not hand-edit them.",
-    "RECORDS (docs/adr/) say why a decision was taken. Either may write one: the agent",
-    "proposes when it spots a decision nobody wrote down, a person authors when they hold",
-    "the reasoning, and only a person may promote one to accepted. That is why they are",
-    "sharedOwned rather than the agent's -- see docs/DOC-RULES.md.",
-    "So agentOwned is the short list of what ONLY the agent may write. Everything outside",
-    "these three lists -- docs/, .claude/, src/, tests/ -- belongs to people, and the agent",
-    "obeying rules it cannot rewrite is the whole point."
+    "Rules (docs/rules/), maps (the AGENTS.md files) and records (docs/adr/) have different",
+    "owners; docs/rules/DOC-RULES.md says who, and why. agentOwned is the short list of what",
+    "ONLY the agent may write. Everything outside these three lists belongs to people."
   ],
 
   "precedence": "humanOwned, then sharedOwned, then agentOwned; the first match decides. A path is protected -- meaning a human may not write it -- if and only if it matches an agentOwned pattern and matches neither of the other two lists. Carve-outs are nested inside guarded directories, so they must be evaluated first and override what follows.",
@@ -59,8 +48,8 @@
 
   "guidance": [
     "Change the code, and let the documentation agent regenerate the map on the pull request.",
-    "If the rule itself is wrong rather than the map, edit it in docs/ - that whole directory is yours.",
+    "If the rule itself is wrong rather than the map, edit it in docs/rules/ - that whole directory is yours.",
     "If this path should not be guarded at all, edit .protected-paths.json - that file is human-owned on purpose.",
-    "Set PROTECTED_PATHS_BYPASS=1 in the environment only when you are the documentation agent, or when setting the harness up for the first time."
+    "Set PROTECTED_PATHS_BYPASS=1 in the environment only when setting the harness up for the first time. No workflow sets it; the documentation agent is exempted by commit authorship."
   ]
 }

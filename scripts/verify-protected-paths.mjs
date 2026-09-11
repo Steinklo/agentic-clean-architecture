@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Anti-drift check for the protected-path guard.
 //
-// The specific failure this exists to prevent: "The guarded path
-// list is read by the CI workflow, which owns this rule outright, and must
-// be read from one shared source, or the local and remote guards will disagree."
+// The specific failure this exists to prevent: the guarded path list is read by
+// more than one consumer -- the CI guard and the documentation agent's
+// self-check -- and a consumer that keeps its own copy of the patterns drifts
+// from the others without anything saying so.
 //
 // So this script asserts four things:
 //   1. .protected-paths.json is the only file that spells the patterns out.
@@ -13,7 +14,7 @@
 //      with no repoRoot injected -- see the note above check 4.
 //
 // Run it: node scripts/verify-protected-paths.mjs
-// CI (issue 14) should run it too, as a step in the protected-path workflow.
+// CI runs it as the first step of .github/workflows/protected-paths.yml.
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -113,7 +114,7 @@ check(
   `${MATCHER} never mentions ${RULES_FILE}`
 );
 
-// The matcher has exactly one mode, --check, and CI owns this rule outright.
+// CI owns the protected-path rule outright.
 // Registering it as a hook of any kind would make Claude Code a second
 // enforcement point with its own definition -- the drift this guard exists to
 // prevent. Every hook event is checked, not just PreToolUse: the mistake this
@@ -135,8 +136,8 @@ check(
 const workflows = walk(path.join(REPO_ROOT, ".github", "workflows"));
 check(
   workflows.length
-    ? "the CI check delegates to the shared script (issue 14)"
-    : "the CI check delegates to the shared script (issue 14) -- skipped, no workflows yet",
+    ? "the CI check delegates to the shared script"
+    : "the CI check delegates to the shared script -- skipped, no workflows yet",
   workflows.length === 0 ||
     workflows.some((w) => read(w).includes("protected-paths.mjs") || read(w).includes(RULES_FILE)),
   "a workflow exists but none reads the shared list; it must call `node scripts/protected-paths.mjs --check <paths>`"
