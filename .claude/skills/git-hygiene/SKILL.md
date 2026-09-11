@@ -97,7 +97,8 @@ failure the guard exists to prevent.
 
 There is deliberately **no local hook** mirroring this, so an edit to an agent-owned file succeeds
 locally and fails on the pull request. Never set `PROTECTED_PATHS_BYPASS` to get past it; it exists
-for first-time harness setup, and CI never honours it.
+for first-time harness setup only. The matcher honours it wherever it runs, so no workflow may set
+it — in CI it would silently switch the guard off.
 
 ## 2. Merge strategy — squash to land
 
