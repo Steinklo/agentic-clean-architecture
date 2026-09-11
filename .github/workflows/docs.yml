@@ -435,15 +435,19 @@ jobs:
           } >"${proposal}"
           echo "proposal=${proposal}" >>"${GITHUB_OUTPUT}"
 
+          # Against the tip of the base branch, not the merge base: the agent follows
+          # the base's current rules, whether the difference is this pull request's
+          # or the base moving on since the branch point. So the messages say what
+          # differs, not who changed it -- the proposal above says that.
           if git diff --quiet "origin/${BASE_REF}" HEAD -- "${RULES_DIR}"; then
-            echo "This pull request does not change ${RULES_DIR}/; the agent reads it as it is."
+            echo "${RULES_DIR}/ here matches ${BASE_REF}; the agent reads it as it is."
             exit 0
           fi
 
           rm -rf -- "${RULES_DIR}"
           git checkout "origin/${BASE_REF}" -- "${RULES_DIR}"
           git reset -q -- "${RULES_DIR}"
-          echo "This pull request changes ${RULES_DIR}/; the agent reads the ${BASE_REF} version instead."
+          echo "${RULES_DIR}/ here differs from ${BASE_REF}; the agent reads the ${BASE_REF} version instead."
 
       - name: Regenerate the documentation
         if: ${{ steps.loop.outputs.regenerate == 'true' }}
