@@ -18,8 +18,17 @@ namespace Todo.UnitTests.Common;
 /// inlined error is constructed inside a method body, so there is no member on any type to
 /// enumerate. Reading the codes back would mean invoking every guard with inputs that make it fail,
 /// which is the thing that cannot be done generically. So this reads the domain's <c>.cs</c> files
-/// and finds every <c>DomainError.Validation/NotFound/Conflict/Failure</c> call whose first argument is a
-/// literal, which is exactly how every error in Todo.Domain is written.
+/// and finds every <c>DomainError.Validation/NotFound/Conflict/Failure/NotImplemented</c> call whose
+/// first argument is a literal, which is exactly how every error in Todo.Domain is written.
+/// </para>
+/// <para>
+/// <b>The alternation above is a second habit, beside the one in <c>ResultExtensions</c>.</b> A
+/// category added to <c>DomainError</c> without being added to that pattern is not a compile error;
+/// its codes simply stop being scanned, and this test keeps passing while covering less.
+/// <c>NotImplemented</c> was added to it when the category arrived, and adds no coverage today —
+/// the scan reads Todo.Domain, and that category belongs to adapters rather than to guards. It is
+/// there so the pattern stays a list of every category rather than of the ones that happened to
+/// matter when it was written.
 /// </para>
 /// <para>
 /// <b>How it fails.</b> Two occurrences of the same literal - the same code raised at two guards -
@@ -75,7 +84,7 @@ public partial class ErrorCodeUniquenessTests
     /// whitespace between the parenthesis and the quote is allowed.
     /// </summary>
     [GeneratedRegex(
-        """DomainError\.(?:Validation|NotFound|Conflict|Failure)\s*\(\s*"(?<code>[^"]+)"\s*,""",
+        """DomainError\.(?:Validation|NotFound|Conflict|Failure|NotImplemented)\s*\(\s*"(?<code>[^"]+)"\s*,""",
         RegexOptions.None,
         matchTimeoutMilliseconds: 5000)]
     private static partial Regex ErrorFactoryCall();

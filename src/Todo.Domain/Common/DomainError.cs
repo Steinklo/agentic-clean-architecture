@@ -35,6 +35,15 @@ public sealed record DomainError
     /// <summary>Anything else that went wrong.</summary>
     public static DomainError Failure(string code, string message) => new(code, message, DomainErrorType.Failure);
 
+    /// <summary>
+    /// The operation is legitimate and this system has no implementation for it. An adapter with
+    /// nothing behind it returns this rather than throwing <see cref="NotImplementedException"/>:
+    /// a thrown exception is caught by the unhandled-exception behaviour and surfaces as a 500,
+    /// which tells the caller a defect occurred when nothing went wrong.
+    /// </summary>
+    public static DomainError NotImplemented(string code, string message) =>
+        new(code, message, DomainErrorType.NotImplemented);
+
     /// <inheritdoc />
     public override string ToString() => $"{Code}: {Message}";
 }

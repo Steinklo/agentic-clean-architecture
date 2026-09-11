@@ -21,9 +21,14 @@ adding an endpoint is adding a file and there is no route list to keep in step. 
   feature ends up half under one route.
 - No business logic, no validation rules, no direct database access.
 - **No per-endpoint status mapping.** One translation, driven by `DomainErrorType`: `Validation` →
-  400, `NotFound` → 404, `Conflict` → 409, `Failure` → 500. An endpoint picks only the shape of
-  success and names a status code nowhere but its `Produces`/`ProducesProblem` metadata. Copying
-  that ladder into an endpoint is the specific defect this template exists to avoid.
+  400, `NotFound` → 404, `Conflict` → 409, `Failure` → 500, `NotImplemented` → 501. An endpoint
+  picks only the shape of success and names a status code nowhere but its
+  `Produces`/`ProducesProblem` metadata. Copying that ladder into an endpoint is the specific defect
+  this template exists to avoid.
+- **A new category means editing `StatusCodeFor` in the same change.** It is not a compile error and
+  cannot be made into one — `ResultExtensions` explains why in its own remarks — so a category with
+  no arm reaches callers as a silent 500. `NotImplemented` is the one category added since, and
+  `FulfilManifestationEndpointTests` is the test that would catch the arm being forgotten.
 
 ## Configuration
 
