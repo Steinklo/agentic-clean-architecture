@@ -40,7 +40,7 @@ any of them is incomplete.
 | `src/Todo.Application/ConfigureServices.cs` | Mediator, its behaviour list, and validator scanning |
 | `src/Todo.Infrastructure/ConfigureServices.cs` | the `DbContext`, repositories and unit of work |
 | `src/Todo.Api/Common/ResultExtensions.cs` | the single `Result` → `IResult` translation |
-| `tests/Todo.ArchitectureTests/Rules.cs` | every enforced rule, and how much each currently proves |
+| `tests/Todo.ArchitectureTests/Common/Rules.cs` | every enforced rule, and how much each currently proves |
 
 ## Shared building blocks
 

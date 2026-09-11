@@ -29,4 +29,4 @@ OpenAPI tag `TodoLists`.
 
 ## Tests
 
-`tests/Todo.IntegrationTests/` — `TodoLists/` per feature, plus `HealthEndpointTests`.
+`tests/Todo.IntegrationTests/` — `TodoLists/` per feature, plus `Health/HealthEndpointTests.cs`.
