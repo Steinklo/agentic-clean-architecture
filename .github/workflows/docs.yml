@@ -556,9 +556,43 @@ jobs:
           for file in "${changed[@]}"; do echo "  ${file}"; done
           echo
 
+          # claude-code-action resets a fixed set of paths -- .claude/, CLAUDE.md and
+          # a few others -- to the base branch before the agent runs, because it
+          # treats the pull request's versions as untrusted, and leaves them
+          # unstaged. It snapshots each one into .claude-pr/<path> first, which is how
+          # this step tells that reset from the agent's writes without keeping a copy
+          # of the action's list: a file under a snapshotted path that holds exactly
+          # the base's version -- or, like the base, does not exist -- is the reset.
+          # If the action stops snapshotting, nothing matches and those files are
+          # reported as before: loudly wrong, never silently.
+          reset_by_action() {
+            local file="$1" base="origin/${BASE_REF}"
+            [ -e ".claude-pr/${file%%/*}" ] || return 1
+            if git cat-file -e "${base}:${file}" 2>/dev/null; then
+              [ -f "${file}" ] && [ "$(git hash-object -- "${file}")" = "$(git rev-parse "${base}:${file}")" ]
+            else
+              [ ! -e "${file}" ]
+            fi
+          }
+
           trespass=()
           restored=()
           for file in "${changed[@]}"; do
+            if reset_by_action "${file}"; then
+              # Put the pull request's version back: from the index when the pull
+              # request has the file, by deleting it when the reset brought back a
+              # file the pull request removed. Agent-owned files are included --
+              # CLAUDE.md is on the action's list too, and its reset must not be
+              # committed as the agent's regeneration.
+              if git cat-file -e "HEAD:${file}" 2>/dev/null; then
+                git checkout -- "${file}"
+              else
+                rm -f -- "${file}"
+              fi
+              restored+=("${file}")
+              continue
+            fi
+
             # --classify, not --check. This step asks "may the AGENT keep this?", which
             # is a different question from "may a HUMAN write this?" and stopped having
             # the same answer when decision records became shared: a record answers yes
@@ -578,22 +612,7 @@ jobs:
 
             case "${verdict}" in
               agent-owned|shared-owned) ;;
-              human-owned|unguarded|outside-repo)
-                # claude-code-action resets .claude/, CLAUDE.md and a few other paths
-                # to the base branch before the agent runs -- it treats the pull
-                # request's versions as untrusted -- and leaves them unstaged. A
-                # tracked file that is back to exactly the base version is that
-                # reset, not the agent: put the pull request's version back and say
-                # nothing. Matching the base keeps the action's path list out of this
-                # file. The one write it also swallows, the agent setting a file back
-                # to exactly the base, is undone here all the same.
-                if git ls-files --error-unmatch -- "${file}" >/dev/null 2>&1 \
-                  && git diff --quiet "origin/${BASE_REF}" -- "${file}"; then
-                  git checkout -- "${file}"
-                  restored+=("${file}")
-                else
-                  trespass+=("${file}")
-                fi ;;
+              human-owned|unguarded|outside-repo) trespass+=("${file}") ;;
               *) echo "protected-paths.mjs returned an unknown verdict '${verdict}' for ${file}." >&2
                  exit 1 ;;
             esac
@@ -627,7 +646,14 @@ jobs:
 
               chunk="${RUNNER_TEMP}/discarded-chunk"
               if git ls-files --error-unmatch "${file}" >/dev/null 2>&1; then
-                git diff -- "${file}" >"${chunk}"
+                if [ -e ".claude-pr/${file%%/*}" ]; then
+                  # The agent saw the base's version of a reset path, so its change is
+                  # measured from there -- against the pull request it would also show
+                  # the action undoing the pull request's own edits.
+                  git diff "origin/${BASE_REF}" -- "${file}" >"${chunk}"
+                else
+                  git diff -- "${file}" >"${chunk}"
+                fi
               else
                 { echo "(new file)"; cat -- "${file}"; } >"${chunk}"
               fi
