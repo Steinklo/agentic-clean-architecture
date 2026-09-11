@@ -18,6 +18,16 @@ OpenAPI tag `TodoLists`.
 
 `/health` is mapped in `Program.cs` and reports real database connectivity.
 
+**Manifestations** — base class `Endpoints/Manifestations/ManifestationEndpoint.cs`, prefix
+`/api/manifestations`, OpenAPI tag `Manifestations`. All three endpoint files live in
+`Endpoints/Manifestations/`.
+
+| Method | Route | Endpoint |
+|---|---|---|
+| `POST` | `/api/todo-lists/{todoListId:guid}/items/{todoItemId:guid}/manifest` | `RequestManifestationEndpoint` (derives from `TodoListEndpoint`) |
+| `GET` | `/api/manifestations/{manifestationId:guid}` | `GetManifestationEndpoint` |
+| `POST` | `/api/manifestations/{manifestationId:guid}/fulfil` | `FulfilManifestationEndpoint` |
+
 ## Plumbing
 
 | | |
@@ -29,4 +39,5 @@ OpenAPI tag `TodoLists`.
 
 ## Tests
 
-`tests/Todo.IntegrationTests/` — `TodoLists/` per feature, plus `Health/HealthEndpointTests.cs`.
+`tests/Todo.IntegrationTests/` — `TodoLists/` and `Manifestations/` per feature, plus
+`Health/HealthEndpointTests.cs`.
