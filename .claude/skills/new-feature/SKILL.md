@@ -5,7 +5,7 @@ description: Build anything new in this solution - an aggregate root, a value ob
 
 # Add to this solution
 
-Work **inside out** — Domain, Application, Infrastructure, Api, tests — because each step compiles against the one before it. Every command runs from the repository root. `TodoLists` is the only feature, so every shape below has a worked instance in it; open the nearest one first.
+Work **inside out** — Domain, Application, Infrastructure, Api, tests — because each step compiles against the one before it. Every command runs from the repository root. `TodoLists` is the fullest feature and `Manifestations` the second — a second aggregate root, a port that is not a repository (`IRealityGateway`), and a reaction across aggregates — so every shape below has a worked instance in one of them; open the nearest one first.
 
 A use case on an existing aggregate needs sections 1 and 5–11. A new aggregate root needs all of them. A value object or child entity on its own needs section 1, its own section, then the `add-migration` skill.
 
@@ -45,7 +45,7 @@ Copy `src/Todo.Domain/TodoLists/TodoList.cs`. It must have all of:
 - A **private** constructor taking `Guid id` and its value objects, chaining `: base(id)`. Never a parameterless one beside it: EF binds the constructor with the fewest property parameters, so an empty one would win.
 - Every property `{ get; private set; }` (`Rules.EntitiesHaveNoPublicSetters`). Child collections are `IReadOnlyCollection<T>` over a `private readonly List<T> _items = [];` you initialise yourself; EF writes the field.
 - `public static Result<<Aggregate>> Create(...)` taking **scalars only**: call each value object's `Create`, return `Result.Failure<T>(x.Error)` on the first failure, mint the id with `Guid.CreateVersion7()`, `RaiseDomainEvent(new <Aggregate>CreatedEvent(...))`, return `Result.Success(instance)`.
-- Every state transition is a method returning `Result` or `Result<T>`, with its `DomainError` constructed **inline at the guard that rejects**. Choose the category deliberately — it alone decides the caller's status, through the one translation `docs/rules/layers/Todo.Api.md` sets out. A refused transition is a `Conflict`. **Adding a member to `DomainErrorType` is not a compile error and cannot be made into one**, so a new category with no arm in `ResultExtensions.StatusCodeFor` reaches callers as a silent 500 — add the arm in the same change.
+- Every state transition is a method returning `Result` or `Result<T>`, with its `DomainError` constructed **inline at the guard that rejects**. Choose the category deliberately — it alone decides the caller's status, through the one translation `docs/rules/layers/Todo.Api.md` sets out. A refused transition is a `Conflict`. `NotImplemented` is not the domain's to raise — it belongs to an adapter with nothing behind it, and `RealityGateway` is the worked example. **Adding a member to `DomainErrorType` is not a compile error and cannot be made into one**, so a new category with no arm in `ResultExtensions.StatusCodeFor` reaches callers as a silent 500 — add the arm in the same change.
 - Dotted error codes, unique across `Todo.Domain` — `ErrorCodeUniquenessTests` scans its source for `DomainError.<Category>("literal"` and fails on a repeat. One rule rejecting at two entry points is written once in a private helper returning `DomainError?`, as `TodoList.ArchivedRejection()` does.
 
 In the same change it then needs a creation event and handler (§5), an EF configuration (§2b), a repository (§8), a migration (`add-migration` skill), and an endpoint base class (§10).
@@ -154,7 +154,7 @@ Declare the interface in Application, implement it in Infrastructure — `Rules.
 - **Whole aggregates only.** When the aggregate has child collections, `GetByIdAsync` `Include`s every one of them, because an aggregate that arrives partial enforces its invariants against a collection it merely believes is empty. An aggregate with no children needs no `Include`.
 - **Tracked**, no `AsNoTracking`. **Nothing here saves** — committing is `IUnitOfWork`'s. **One repository per aggregate root.**
 - The implementation is `internal sealed class <Aggregate>Repository(TodoDbContext context)` using `_context.Set<<Aggregate>>()`.
-- **A new aggregate's repository must be registered by hand** (`Rules.RepositoriesAreRegistered`): one `services.AddScoped<I<Aggregate>Repository, <Aggregate>Repository>();` in `src/Todo.Infrastructure/ConfigureServices.cs`. It is the only DI line a feature adds — handlers, validators, configurations and endpoints are all discovered.
+- **A new aggregate's repository must be registered by hand** (`Rules.RepositoriesAreRegistered`): one `services.AddScoped<I<Aggregate>Repository, <Aggregate>Repository>();` in `src/Todo.Infrastructure/ConfigureServices.cs`. A port that is not a repository — `IRealityGateway` is the worked example — is registered by hand beside it, and no rule covers it, only the integration test that exercises its route. Everything else — handlers, validators, configurations and endpoints — is discovered.
 
 ## 9. The DTO
 
@@ -220,7 +220,7 @@ Editing one of these means checking you have not gone off the path:
 - **A decision record, if this slice took a real decision** — do not write one *instead* of filling in the pull request's `## Decision record` section. Fill that in, naming the alternative you rejected, and the agent transcribes it as `reasoning: authored`. Leave it blank and it may file the record with an alternative it inferred from your diff, marked `reasoning: reconstructed`. Almost no feature slice needs one; `docs/rules/DOC-RULES.md` owns the gate.
 - **Any existing migration** — the `add-migration` skill.
 
-`src/Todo.Infrastructure/ConfigureServices.cs` is the one exception: a new aggregate's repository is registered there by hand.
+`src/Todo.Infrastructure/ConfigureServices.cs` is the one exception: a new aggregate's repository, and any port that is not a repository, is registered there by hand.
 
 ## 14. Failure modes
 
@@ -240,6 +240,6 @@ Editing one of these means checking you have not gone off the path:
 | Malformed input returns the *domain's* error, or 404, instead of 400 `Validation.Failed` | The validator is `internal`, so the assembly scan skipped it | Make it `public` |
 | The validator is public and still never runs | The request does not answer with a `Result`, so `ValidationBehaviour`'s constraint excludes it | `IRequest<Result>` or `IRequest<Result<T>>` |
 | The endpoint 404s and its code never runs | The class is abstract, generic, or does not derive from the feature's endpoint base | Derive from it; the scan skips abstract and generic types |
-| At the first request: `Unable to resolve service for type 'I<Aggregate>Repository' while attempting to activate '<UseCase>Handler'` | The repository was never registered. The build stays green — this is the one wiring step nothing discovers | One `AddScoped` line in `Todo.Infrastructure/ConfigureServices.cs` |
+| At the first request: `Unable to resolve service for type 'I<Aggregate>Repository' while attempting to activate '<UseCase>Handler'` | The repository was never registered. The build stays green — hand-registered services are the wiring nothing discovers | One `AddScoped` line in `Todo.Infrastructure/ConfigureServices.cs` |
 | A conflict comes back as 400, or a 500 appears | A status was decided in the endpoint, or the domain threw instead of returning a failed `Result` | Return `Result.Failure` with the right `DomainErrorType`; delete the endpoint's mapping |
 | Two writes in one request, or an event handler's change not committed | `SaveChangesAsync` called twice, or an aggregate loaded through a second scope | One `SaveChangesAsync` per handler, at the end |
